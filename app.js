@@ -162,14 +162,14 @@ savePartnerBtn.addEventListener('click', async () => {
     }
 });
 
-// === 大聲公功能 ===
+// === 悄悄話功能 ===
 megaphoneBtn.addEventListener('click', async () => {
     renderMegaphones(); // 點開時確保顯示最新內容
     megaphoneModal.classList.remove('hidden');
     history.pushState({ modal: 'megaphone' }, '', '#megaphone');
     
     // 消掉小紅點
-    megaphoneBtn.innerHTML = '📢 大聲公';
+    megaphoneBtn.innerHTML = '🤫 悄悄話';
 
     // 【閱後即焚】如果對方有留言，我看過之後就幫他從資料庫抹除
     const pMega = partnerEntries.find(e => e.isMegaphone);
@@ -350,9 +350,9 @@ function renderMegaphones() {
 
     // 如果沒打開信箱，且有新留言，就亮起小紅點通知
     if (pMega && pMega.megaphoneText && megaphoneModal.classList.contains('hidden')) {
-        megaphoneBtn.innerHTML = '📢 大聲公 <span style="background:red;width:8px;height:8px;border-radius:50%;display:inline-block;margin-left:4px;"></span>';
+        megaphoneBtn.innerHTML = '🤫 悄悄話 <span style="background:red;width:8px;height:8px;border-radius:50%;display:inline-block;margin-left:4px;"></span>';
     } else {
-        megaphoneBtn.innerHTML = '📢 大聲公';
+        megaphoneBtn.innerHTML = '🤫 悄悄話';
     }
     
     // 如果小視窗現在開著，千萬不能馬上覆蓋掉畫面上的字 (因為背景正在執行閱後即焚)
@@ -397,7 +397,10 @@ function renderCalendar() {
         
         // 個人當日資料
         const dailyMy = myEntries.filter(e => e.date === dateStr);
-        const dailyMyTotal = dailyMy.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+        const dailyExp = dailyMy.filter(e => !e.type || e.type === 'expense').reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+        const dailyInc = dailyMy.filter(e => e.type === 'income').reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+        const dailyNet = dailyInc - dailyExp;
+        
         const myLastMoodEntry = dailyMy.find(e => e.moodEmoji);
         const myMood = myLastMoodEntry ? myLastMoodEntry.moodEmoji : '';
         const myHasMsg = myLastMoodEntry && myLastMoodEntry.moodMessage ? '<span style="font-size:0.8rem; vertical-align: top;">💬</span>' : '';
@@ -410,8 +413,10 @@ function renderCalendar() {
 
         let cellHTML = `<div class="date">${day}</div>`;
         
-        if (dailyMyTotal > 0) {
-            cellHTML += `<div class="daily-total-badge">$${dailyMyTotal.toLocaleString()}</div>`;
+        if (dailyNet !== 0) {
+            cellHTML += `<div class="daily-total-badge" style="background:${dailyNet > 0 ? '#2ecc71' : 'var(--primary-color)'}; font-size:0.85rem;">${dailyNet > 0 ? '+' : ''}${dailyNet.toLocaleString()}</div>`;
+        } else if (dailyExp > 0 || dailyInc > 0) {
+            cellHTML += `<div class="daily-total-badge" style="background:#aaa; font-size:0.8rem;">打平</div>`;
         }
         
         // 心情顯示區塊 (右下角放自己，左下角放伴侶)
@@ -436,10 +441,21 @@ function renderSummary() {
     const year = currentViewingDate.getFullYear();
     const mmStr = String(currentViewingDate.getMonth() + 1).padStart(2, '0');
     
-    const monthlyExpenses = myEntries.filter(exp => exp.date && exp.date.startsWith(`${year}-${mmStr}`) && exp.amount > 0);
-    const total = monthlyExpenses.reduce((sum, exp) => sum + Number(exp.amount), 0);
+    const monthlyItems = myEntries.filter(exp => exp.date && exp.date.startsWith(`${year}-${mmStr}`) && exp.amount > 0);
+    const monthlyExpenses = monthlyItems.filter(exp => !exp.type || exp.type === 'expense');
+    const monthlyIncomes = monthlyItems.filter(exp => exp.type === 'income');
     
-    animateValue(monthlyTotalAmount, parseInt(monthlyTotalAmount.textContent.replace(/,/g, '') || 0), total, 600);
+    const totalExp = monthlyExpenses.reduce((sum, exp) => sum + Number(exp.amount), 0);
+    const totalInc = monthlyIncomes.reduce((sum, exp) => sum + Number(exp.amount), 0);
+    const totalNet = totalInc - totalExp;
+    
+    monthlyTotalAmount.textContent = totalNet.toLocaleString();
+    monthlyTotalAmount.style.color = totalNet >= 0 ? '#2a2a2a' : 'var(--primary-color)';
+    
+    const incomeSpan = document.getElementById('monthly-income');
+    const expenseSpan = document.getElementById('monthly-expense');
+    if (incomeSpan) incomeSpan.textContent = `$${totalInc.toLocaleString()}`;
+    if (expenseSpan) expenseSpan.textContent = `$${totalExp.toLocaleString()}`;
 
     const categoryTotals = { '飲食': 0, '交通': 0, '娛樂': 0, '其他': 0 };
     monthlyExpenses.forEach(exp => {
@@ -482,6 +498,9 @@ async function handleAddExpense(e) {
     
     const date = expenseDateInput.value;
     
+    const typeInput = document.querySelector('input[name="expenseType"]:checked');
+    const type = typeInput ? typeInput.value : 'expense';
+    
     const moodEmojiInput = document.querySelector('input[name="moodEmoji"]:checked');
     const moodEmoji = moodEmojiInput ? moodEmojiInput.value : '';
     const moodMessage = document.getElementById('mood-message').value.trim();
@@ -496,6 +515,7 @@ async function handleAddExpense(e) {
         uid: currentUser.uid,
         userEmail: currentUser.email, // 讓伴侶靠 email 撈取
         date,
+        type,
         moodEmoji,
         moodMessage,
         category,
@@ -566,6 +586,14 @@ window.editEntry = function(id) {
     document.getElementById('expense-amount').value = exp.amount > 0 ? exp.amount : '';
     document.getElementById('mood-message').value = exp.moodMessage || '';
     
+    if (exp.type) {
+        const t = document.querySelector(`input[name="expenseType"][value="${exp.type}"]`);
+        if(t) t.checked = true;
+    } else {
+        const fallback = document.querySelector(`input[name="expenseType"][value="expense"]`);
+        if(fallback) fallback.checked = true;
+    }
+
     if (exp.moodEmoji) {
         const r = document.querySelector(`input[name="moodEmoji"][value="${exp.moodEmoji}"]`);
         if(r) r.checked = true;
@@ -603,7 +631,7 @@ function renderDailyRecords(dateStr) {
                     </div>
                 </div>
                 <div style="display:flex; align-items:center; gap:0.5rem; justify-content:flex-end;">
-                    ${exp.amount > 0 ? `<span class="record-amount" style="font-size:1.2rem; margin-right:4px;">$${exp.amount.toLocaleString()}</span>` : ''}
+                    ${exp.amount > 0 ? `<span class="record-amount" style="font-size:1.2rem; margin-right:4px; ${exp.type === 'income' ? 'color:#2ecc71;' : ''}">${exp.type === 'income' ? '+' : '-'}$${exp.amount.toLocaleString()}</span>` : ''}
                     <button class="record-actions" style="background:#5c7cfa; color:white; border:none; padding:4px 8px; border-radius:var(--radius-sm); cursor:pointer; font-size:0.8rem;" onclick="editEntry('${exp.id}')">編輯</button>
                     <button class="record-actions delete-btn" onclick="deleteEntry('${exp.id}', '${dateStr}')">刪除</button>
                 </div>

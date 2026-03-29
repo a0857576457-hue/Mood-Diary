@@ -42,7 +42,7 @@
                 <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom: 0.5rem; flex-direction:column; gap:0.5rem;">
                     <h2 style="margin:0;">心情與花費總覽</h2>
                     <div style="display:flex; gap:0.5rem; width:100%;">
-                        <button id="megaphone-btn" class="icon-btn" style="border:1px solid var(--primary-color); padding:4px 8px; border-radius:8px; font-size:0.8rem; background:var(--primary-color); color:white">📢 大聲公</button>
+                        <button id="megaphone-btn" class="icon-btn" style="border:1px solid var(--primary-color); padding:4px 8px; border-radius:8px; font-size:0.8rem; background:var(--primary-color); color:white">🤫 悄悄話</button>
                         <button id="partner-setting-btn" class="icon-btn" style="border:1px solid rgba(0,0,0,0.1); padding:4px 8px; border-radius:8px; font-size:0.8rem; background:rgba(255,255,255,0.5)">💖 另一半設定</button>
                         <button id="logout-btn" class="icon-btn" style="border:1px solid rgba(0,0,0,0.1); padding:4px 8px; border-radius:8px; font-size:0.8rem; background:rgba(255,255,255,0.5)">👈 登出</button>
                     </div>
@@ -61,8 +61,12 @@
             </div>
             
             <div class="total-expense" id="total-expense">
-                <span class="currency">我的當月花費 (NT$)</span>
+                <span class="currency">當月結餘 (NT$)</span>
                 <span class="amount" id="monthly-total-amount">0</span>
+                <div style="font-size: 0.95rem; color: var(--text-secondary); margin-top: 8px;">
+                    📈 收入: <span id="monthly-income" style="color: #2ecc71; margin-right:8px;">$0</span> 
+                    📉 支出: <span id="monthly-expense">$0</span>
+                </div>
             </div>
 
             <div class="category-breakdown" id="category-breakdown">
@@ -103,6 +107,18 @@
             </div>
 
             <form id="expense-form" autocomplete="off">
+                <div class="form-group">
+                    <label>我要紀錄</label>
+                    <div class="category-selector" style="grid-template-columns: 1fr 1fr;">
+                        <label class="radio-label">
+                            <input type="radio" name="expenseType" value="expense" checked> <span>💸 支出</span>
+                        </label>
+                        <label class="radio-label">
+                            <input type="radio" name="expenseType" value="income"> <span>💰 收入</span>
+                        </label>
+                    </div>
+                </div>
+
                 <div class="form-group">
                     <label for="expense-date">日期</label>
                     <input type="date" id="expense-date" required>
@@ -176,24 +192,24 @@
          </div>
     </div>
 
-    <!-- 大聲公 Modal -->
+    <!-- 悄悄話 Modal -->
     <div id="megaphone-modal" class="modal-overlay hidden">
          <div class="modal glass-panel">
             <div class="modal-header">
-                <h3>📢 頂部大聲公</h3>
+                <h3>🤫 專屬悄悄話</h3>
                 <button id="close-megaphone-btn" class="close-btn">&times;</button>
             </div>
             
             <div style="margin-bottom: 1.5rem; padding: 1rem; background: rgba(255,255,255,0.6); border-radius: var(--radius-sm);">
-                <span style="font-size:0.85rem; color:var(--text-secondary);">伴侶的大聲公：</span>
+                <span style="font-size:0.85rem; color:var(--text-secondary);">伴侶傳送的悄悄話：</span>
                 <div id="partner-megaphone-text" style="font-size: 1.1rem; margin-top: 0.5rem; min-height: 1.5rem; word-break: break-all;">尚無留言</div>
             </div>
 
             <div class="form-group" autocomplete="off">
-                <label>我的大聲公（儲存後傳送給對方）</label>
-                <input type="text" id="my-megaphone-input" placeholder="例如：下班記得買牛奶喔！" autocomplete="off" spellcheck="false" data-lpignore="true">
+                <label>我想對伴侶說的悄悄話（看過即焚毀）</label>
+                <input type="text" id="my-megaphone-input" placeholder="有什麼秘密想對伴侶說嗎..." autocomplete="off" spellcheck="false" data-lpignore="true">
             </div>
-            <button id="save-megaphone-btn" class="primary-btn full-width">送出大聲公</button>
+            <button id="save-megaphone-btn" class="primary-btn full-width">傳送悄悄話</button>
          </div>
     </div>
 
