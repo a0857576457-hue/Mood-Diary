@@ -351,17 +351,18 @@ function setupRealtimeSync() {
             snapshot.forEach(doc => {
                 const data = doc.data();
                 
-                // 私密心情過濾：如果對方選擇的是錢袋 💰，則將該心情與小語抹除不顯示
+                // 私密心情過濾：如果對方選擇的是錢袋 💰，整筆紀錄當作私密日記，不互相分享
+                if (data.moodEmoji === '💰') return;
+                
                 let safeMoodEmoji = data.moodEmoji;
                 let safeMoodMessage = data.moodMessage;
-                if (safeMoodEmoji === '💰') {
-                    safeMoodEmoji = null;
-                    safeMoodMessage = null;
-                }
                 
                 partnerEntries.push({ 
                     id: doc.id, 
                     date: data.date, 
+                    type: data.type,
+                    amount: data.amount,
+                    category: data.category,
                     moodEmoji: safeMoodEmoji, 
                     moodMessage: safeMoodMessage, 
                     timestamp: data.timestamp,
@@ -444,6 +445,33 @@ function setupEventListeners() {
     const expenseTypeRadios = document.querySelectorAll('input[name="expenseType"]');
     const expenseCategoryGroup = document.getElementById('expense-category-group');
     const incomeCategoryGroup = document.getElementById('income-category-group');
+    const customCatGroup = document.getElementById('custom-category-group');
+    const customCatInput = document.getElementById('custom-category-input');
+    
+    // 檢查「其他」的出現時機，並連動文字框
+    function checkCustomCategory() {
+        const type = document.querySelector('input[name="expenseType"]:checked')?.value || 'expense';
+        let isOther = false;
+        if (type === 'income') {
+            const incCat = document.querySelector('input[name="incomeCategory"]:checked');
+            if (incCat && incCat.value === '其他') isOther = true;
+        } else {
+            const expCat = document.querySelector('input[name="category"]:checked');
+            if (expCat && expCat.value === '其他') isOther = true;
+        }
+        
+        if (isOther) {
+            customCatGroup.classList.remove('hidden');
+        } else {
+            customCatGroup.classList.add('hidden');
+        }
+    }
+
+    // 監聽類別切換
+    document.querySelectorAll('input[name="category"], input[name="incomeCategory"]').forEach(r => {
+        r.addEventListener('change', checkCustomCategory);
+    });
+
     expenseTypeRadios.forEach(radio => {
         radio.addEventListener('change', (e) => {
             if (e.target.value === 'income') {
@@ -453,6 +481,7 @@ function setupEventListeners() {
                 expenseCategoryGroup.classList.remove('hidden');
                 incomeCategoryGroup.classList.add('hidden');
             }
+            checkCustomCategory();
         });
     });
     
@@ -547,25 +576,31 @@ function renderCalendar() {
         const myHasMsg = myLastMoodEntry && myLastMoodEntry.moodMessage ? '<span style="font-size:0.8rem; vertical-align: top;">💬</span>' : '';
         
         // 伴侶當日資料
-        const dailyPartner = partnerEntries.filter(e => e.date === dateStr);
-        const partnerLastMoodEntry = dailyPartner.find(e => e.moodEmoji);
-        const partnerMood = partnerLastMoodEntry ? partnerLastMoodEntry.moodEmoji : '';
-        const partnerHasMsg = partnerLastMoodEntry && partnerLastMoodEntry.moodMessage ? '<span style="font-size:0.8rem; vertical-align: top;">💬</span>' : '';
-
+        const dailyPartner = partnerEntries.filter(e => e.date === dateStr && !e.isMegaphone);
+        
         let cellHTML = `<div class="date">${day}</div>`;
+        const dotsHTML = [];
         
-        if (dailyNet !== 0) {
-            cellHTML += `<div class="daily-total-badge" style="background:${dailyNet > 0 ? '#2ecc71' : 'var(--primary-color)'}; font-size:0.85rem;">${dailyNet > 0 ? '+' : ''}${dailyNet.toLocaleString()}</div>`;
-        } else if (dailyExp > 0 || dailyInc > 0) {
-            cellHTML += `<div class="daily-total-badge" style="background:#aaa; font-size:0.8rem;">打平</div>`;
-        }
+        // 個人點點
+        dailyMy.forEach(e => {
+            if (e.amount > 0) {
+                dotsHTML.push(`<div class="small-dot" style="background-color: ${categoryColors[e.category] || '#aaa'}"></div>`);
+            } else if (e.moodEmoji) {
+                dotsHTML.push(`<div class="small-dot" style="background-color: var(--primary-color)"></div>`);
+            }
+        });
+
+        // 伴侶點點
+        dailyPartner.forEach(e => {
+            if (e.amount > 0) {
+                dotsHTML.push(`<div class="small-dot" style="background-color: ${categoryColors[e.category] || '#aaa'}; border: 1px solid #d63384;"></div>`);
+            } else if (e.moodEmoji) {
+                dotsHTML.push(`<div class="small-dot" style="background-color: #d63384"></div>`);
+            }
+        });
         
-        // 心情顯示區塊 (右下角放自己，左下角放伴侶)
-        if (myMood || partnerMood) {
-            cellHTML += `<div style="display:flex; justify-content:space-between; margin-top:auto; font-size:1.2rem; padding: 0 2px;">
-                <span title="伴侶心情">${partnerMood}${partnerHasMsg}</span>
-                <span title="我的心情">${myMood}${myHasMsg}</span>
-            </div>`;
+        if (dotsHTML.length > 0) {
+            cellHTML += `<div class="dots-container" style="justify-content:center; align-content:flex-start;">${dotsHTML.slice(0, 10).join('')}</div>`;
         }
         
         cell.innerHTML = cellHTML;
@@ -676,6 +711,12 @@ async function handleAddExpense(e) {
         if (cat) category = cat.value;
     }
     
+    // 處理自訂類別
+    if (category === '其他') {
+        const customCat = document.getElementById('custom-category-input').value.trim();
+        if (customCat) category = customCat;
+    }
+    
     const amountVal = document.getElementById('expense-amount').value;
     const amount = amountVal ? parseFloat(amountVal) : 0;
     
@@ -703,6 +744,7 @@ async function handleAddExpense(e) {
         // 清空表單與重置編輯狀態
         document.getElementById('expense-amount').value = '';
         document.getElementById('mood-message').value = '';
+        document.getElementById('custom-category-input').value = '';
         editingEntryId = null;
         document.getElementById('submit-record-btn').textContent = '儲存日記';
         
@@ -719,7 +761,9 @@ function openModal(defaultDateStr) {
     editingEntryId = null;
     document.getElementById('expense-amount').value = '';
     document.getElementById('mood-message').value = '';
+    document.getElementById('custom-category-input').value = '';
     document.getElementById('submit-record-btn').textContent = '儲存日記';
+    document.getElementById('custom-category-group').classList.add('hidden');
     
     expenseDateInput.value = defaultDateStr;
     renderDailyRecords(defaultDateStr);
@@ -775,14 +819,32 @@ window.editEntry = function(id) {
         if(r) r.checked = true;
     }
     if (exp.category) {
+        let matchedRadio = null;
         if (exp.type === 'income') {
-            const c = document.querySelector(`input[name="incomeCategory"][value="${exp.category}"]`);
-            if(c) c.checked = true;
+            matchedRadio = document.querySelector(`input[name="incomeCategory"][value="${exp.category}"]`);
         } else {
-            const c = document.querySelector(`input[name="category"][value="${exp.category}"]`);
-            if(c) c.checked = true;
+            matchedRadio = document.querySelector(`input[name="category"][value="${exp.category}"]`);
+        }
+        
+        if (matchedRadio) {
+            matchedRadio.checked = true;
+            document.getElementById('custom-category-input').value = '';
+        } else {
+            // 是自訂的類別
+            if (exp.type === 'income') {
+                const target = document.querySelector(`input[name="incomeCategory"][value="其他"]`);
+                if(target) target.checked = true;
+            } else {
+                const target = document.querySelector(`input[name="category"][value="其他"]`);
+                if(target) target.checked = true;
+            }
+            document.getElementById('custom-category-input').value = exp.category;
         }
     }
+    
+    // 主動觸發一次事件檢查以展開文字框
+    const typeRadio = document.querySelector(`input[name="expenseType"]:checked`);
+    if(typeRadio) typeRadio.dispatchEvent(new Event('change'));
     
     document.getElementById('submit-record-btn').textContent = '💾 更新此紀錄';
     
@@ -826,17 +888,28 @@ function renderDailyRecords(dateStr) {
         dailyRecordsContainer.classList.add('hidden');
     }
 
-    // 渲染另一半的「心情留言」
+    // 渲染另一半的紀錄 (包含金額與心情)
     partnerDailyMoodContainer.innerHTML = '';
-    const dailyPartner = partnerEntries.filter(exp => exp.date === dateStr && exp.moodEmoji).sort((a,b) => b.timestamp - a.timestamp);
+    const dailyPartner = partnerEntries.filter(exp => exp.date === dateStr && !exp.isMegaphone).sort((a,b) => b.timestamp - a.timestamp);
     if(dailyPartner.length > 0) {
-        let html = `<strong style="font-size:1.1rem; color:var(--text-primary)">另一半的心情：</strong><br/>`;
-        dailyPartner.forEach(p => {
-            html += `<div style="margin-top:0.5rem; display:flex; align-items:center;">
-                <span style="font-size:1.8rem; margin-right:8px;">${p.moodEmoji}</span> 
-                <span style="font-size:1.2rem; color: #d63384; font-weight:500;">${p.moodMessage ? `「${p.moodMessage}」` : '（純粹留個表情沒說話）'}</span>
-            </div>`;
+        let html = `<strong style="font-size:1.1rem; color:var(--text-primary)">另一半的紀錄：</strong><ul class="records-list" style="margin-top:0.5rem">`;
+        dailyPartner.forEach(exp => {
+            html += `
+                <li class="record-item" style="background: rgba(255,192,203,0.15); border-color: rgba(255,192,203,0.5);">
+                    <div class="record-info">
+                        <div style="font-size:1.6rem; min-width: 40px;">${exp.moodEmoji || ''}</div>
+                        <div class="record-meta">
+                            ${exp.amount > 0 ? `<span class="record-cat" style="color:${categoryColors[exp.category] || '#999'}; font-size:1.15rem; font-weight:600;">${exp.category}</span>` : '<span class="record-cat" style="font-size:1.15rem; font-weight:600;">心情</span>'}
+                            ${exp.moodMessage ? `<div class="record-note" style="color:var(--text-secondary); font-size:1.2rem; margin-top:6px; font-weight:500;">「${exp.moodMessage}」</div>` : ''}
+                        </div>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:0.5rem; justify-content:flex-end;">
+                        ${exp.amount > 0 ? `<span class="record-amount" style="font-size:1.2rem; margin-right:4px; ${exp.type === 'income' ? 'color:#2ecc71;' : ''}">${exp.type === 'income' ? '+' : '-'}$${exp.amount.toLocaleString()}</span>` : ''}
+                    </div>
+                </li>
+            `;
         });
+        html += `</ul>`;
         partnerDailyMoodContainer.innerHTML = html;
         partnerDailyMoodContainer.style.display = 'block';
         dailyRecordsContainer.classList.remove('hidden'); // 如果只有伴侶有留言也要顯示容器
