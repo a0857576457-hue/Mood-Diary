@@ -127,36 +127,6 @@
                     <input type="date" id="expense-date" required>
                 </div>
                 
-                <!-- 新增心情選項 -->
-                <div class="form-group" style="overflow-x: auto; padding-bottom: 5px;">
-                    <label>今日心情 (會分享給另一半)</label>
-                    <div class="category-selector" style="grid-template-columns: repeat(6, 1fr); gap: 0.5rem; min-width: 320px;">
-                        <label class="radio-label mood-label">
-                            <input type="radio" name="moodEmoji" value="😊" checked> <span style="font-size:2rem; margin:auto">😊</span>
-                        </label>
-                        <label class="radio-label mood-label">
-                            <input type="radio" name="moodEmoji" value="😐"> <span style="font-size:2rem; margin:auto">😐</span>
-                        </label>
-                        <label class="radio-label mood-label">
-                            <input type="radio" name="moodEmoji" value="😢"> <span style="font-size:2rem; margin:auto">😢</span>
-                        </label>
-                        <label class="radio-label mood-label">
-                            <input type="radio" name="moodEmoji" value="😡"> <span style="font-size:2rem; margin:auto">😡</span>
-                        </label>
-                        <label class="radio-label mood-label">
-                            <input type="radio" name="moodEmoji" value="🥰"> <span style="font-size:2rem; margin:auto">🥰</span>
-                        </label>
-                        <label class="radio-label mood-label">
-                            <input type="radio" name="moodEmoji" value="🫩"> <span style="font-size:2rem; margin:auto">🫩</span>
-                        </label>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label for="mood-message">心情小語 (會分享給另一半)</label>
-                    <input type="text" id="mood-message" placeholder="例如：今天吃了好吃的拉麵！" autocomplete="off" spellcheck="false" data-lpignore="true">
-                </div>
-
                 <div class="divider" style="margin: 1.5rem 0;"></div>
 
                 <div class="form-group" id="expense-category-group">
@@ -192,6 +162,38 @@
                     <label for="expense-amount">花費金額 (NT$)</label>
                     <input type="number" id="expense-amount" min="0" placeholder="未輸入金額則代表純紀錄心情" autocomplete="off" data-lpignore="true">
                 </div>
+                
+                <div class="divider" style="margin: 1.5rem 0;"></div>
+
+                <!-- 新增心情選項 -->
+                <div class="form-group" style="overflow-x: auto; padding-bottom: 5px;">
+                    <label>今日心情 (會分享給另一半)</label>
+                    <div class="category-selector" style="grid-template-columns: repeat(6, 1fr); gap: 0.5rem; min-width: 320px;">
+                        <label class="radio-label mood-label">
+                            <input type="radio" name="moodEmoji" value="😊" checked> <span style="font-size:2rem; margin:auto">😊</span>
+                        </label>
+                        <label class="radio-label mood-label">
+                            <input type="radio" name="moodEmoji" value="😐"> <span style="font-size:2rem; margin:auto">😐</span>
+                        </label>
+                        <label class="radio-label mood-label">
+                            <input type="radio" name="moodEmoji" value="😢"> <span style="font-size:2rem; margin:auto">😢</span>
+                        </label>
+                        <label class="radio-label mood-label">
+                            <input type="radio" name="moodEmoji" value="😡"> <span style="font-size:2rem; margin:auto">😡</span>
+                        </label>
+                        <label class="radio-label mood-label">
+                            <input type="radio" name="moodEmoji" value="🥰"> <span style="font-size:2rem; margin:auto">🥰</span>
+                        </label>
+                        <label class="radio-label mood-label">
+                            <input type="radio" name="moodEmoji" value="🫩"> <span style="font-size:2rem; margin:auto">🫩</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="mood-message">心情小語 (會分享給另一半)</label>
+                    <input type="text" id="mood-message" placeholder="例如：今天吃了好吃的拉麵！" autocomplete="off" spellcheck="false" data-lpignore="true">
+                </div>
 
                 <button type="submit" class="primary-btn full-width" id="submit-record-btn">儲存日記</button>
             </form>
@@ -205,12 +207,20 @@
                 <h3>💖 綁定您的另一半</h3>
                 <button id="close-partner-btn" class="close-btn">&times;</button>
             </div>
-            <div class="form-group" autocomplete="off">
+            <div class="form-group" autocomplete="off" style="margin-bottom:1rem;">
                 <label>請輸入另一半登入的 Google Email</label>
                 <p style="font-size:0.8rem; color:var(--text-secondary); margin-bottom: 0.8rem;">
                     設定成功後，系統會自動在月曆上抓取對方的「心情符號」與「心情小語」，但絕對不會調閱對方的花費資料！請輸入完全一致的 Email (包含大小寫)。
                 </p>
                 <input type="email" id="partner-email-input" placeholder="例如：lover@gmail.com" autocomplete="off" spellcheck="false" data-lpignore="true">
+            </div>
+            
+            <div class="form-group" style="margin-bottom: 2rem;">
+                <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:500;">
+                    <input type="checkbox" id="enable-notification-checkbox" style="width:18px; height:18px; accent-color:var(--primary-color);">
+                    <span>開啟「🤫 悄悄話」彈窗與系統通知</span>
+                </label>
+                <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.4rem;">開啟後，當伴侶傳送給您悄悄話時，畫面上方將會跳出氣泡通知。</div>
             </div>
             <button id="save-partner-btn" class="primary-btn full-width">儲存綁定</button>
          </div>

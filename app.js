@@ -57,6 +57,7 @@ const partnerSetupModal = document.getElementById('partner-setup-modal');
 const closePartnerBtn = document.getElementById('close-partner-btn');
 const partnerEmailInput = document.getElementById('partner-email-input');
 const savePartnerBtn = document.getElementById('save-partner-btn');
+const enableNotificationCheckbox = document.getElementById('enable-notification-checkbox');
 
 const calendarGrid = document.getElementById('calendar-grid');
 const currentMonthDisplay = document.getElementById('current-month-display');
@@ -137,6 +138,7 @@ logoutBtn.addEventListener('click', () => {
 // 伴侶設定 Modal
 partnerSettingBtn.addEventListener('click', () => {
     partnerEmailInput.value = profileData.partnerEmail || '';
+    enableNotificationCheckbox.checked = profileData.enableNotifications || false;
     partnerSetupModal.classList.remove('hidden');
     history.pushState({ modal: 'partner' }, '', '#partner');
 });
@@ -148,10 +150,18 @@ closePartnerBtn.addEventListener('click', () => {
 // 儲存伴侶 Email
 savePartnerBtn.addEventListener('click', async () => {
     const email = partnerEmailInput.value.trim().toLowerCase();
+    const enableNotif = enableNotificationCheckbox.checked;
+    
+    // 如果勾選了，但尚未授權系統通知，就要求授權
+    if (enableNotif && "Notification" in window && Notification.permission !== "granted") {
+        await Notification.requestPermission();
+    }
+    
     const userRef = doc(db, 'users', currentUser.uid);
     try {
-        await setDoc(userRef, { partnerEmail: email }, { merge: true });
+        await setDoc(userRef, { partnerEmail: email, enableNotifications: enableNotif }, { merge: true });
         profileData.partnerEmail = email;
+        profileData.enableNotifications = enableNotif;
         accountInfo.innerHTML = `我：${currentUser.email}<br/>伴侶：${email || '尚未綁定'}`;
         partnerSetupModal.classList.add('hidden');
         if (location.hash === '#partner') history.back();
@@ -225,9 +235,36 @@ async function fetchUserProfile() {
     }
 }
 
+// ====== 通知推播功能 ======
+window.showWhisperNotification = function() {
+    // 瀏覽器系統通知
+    if ("Notification" in window && Notification.permission === "granted") {
+        new Notification("🤫 收到新悄悄話！", {
+            body: "伴侶剛剛留了一則悄悄話給您哦～",
+        });
+    }
+    
+    // 好看的漂浮 Toast 彈出視窗
+    const toast = document.createElement('div');
+    toast.innerHTML = `
+        <div style="position:fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #2a2a2a; color: white; padding: 12px 24px; border-radius: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); z-index: 9999; display: flex; align-items: center; gap: 10px; font-weight: bold; animation: slideDown 0.3s ease-out;">
+            <span style="font-size:1.5rem">🤫</span>
+            <span>伴侶傳來了新的悄悄話！</span>
+            <button onclick="document.getElementById('megaphone-btn').click(); this.parentElement.remove();" style="background: var(--primary-color); color: white; border: none; padding: 6px 12px; border-radius: 15px; cursor: pointer; font-size: 0.85rem; margin-left:10px; font-weight:bold;">點擊查看</button>
+        </div>
+    `;
+    document.body.appendChild(toast);
+    
+    // 5 秒後自動消失
+    setTimeout(() => {
+        if(toast.parentElement) toast.remove();
+    }, 5000);
+};
+
 // 設定 Firestore 即時監聽
 let myUnsubscribe = null;
 let partnerUnsubscribe = null;
+let lastSeenWhisperText = null;
 
 function setupRealtimeSync() {
     if(myUnsubscribe) myUnsubscribe();
@@ -250,8 +287,6 @@ function setupRealtimeSync() {
             partnerEntries = [];
             snapshot.forEach(doc => {
                 const data = doc.data();
-                // ※ 重要：基於隱私，我們只在前端暫存對方的心情，丟棄金額
-                // (更嚴謹的作法要用 Firebase Security Rules 或 分開 Collection 限制，此處示範簡化)
                 partnerEntries.push({ 
                     id: doc.id, 
                     date: data.date, 
@@ -262,6 +297,19 @@ function setupRealtimeSync() {
                     megaphoneText: data.megaphoneText
                 });
             });
+            
+            // 通知判斷邏輯
+            const pMega = partnerEntries.find(e => e.isMegaphone);
+            const currentWhisper = pMega && pMega.megaphoneText ? pMega.megaphoneText : null;
+            
+            if (currentWhisper !== lastSeenWhisperText) {
+                // 如果原來不是 null (代表不是重整剛載入的瞬間)，且有新訊息，且用戶開啟了通知
+                if (lastSeenWhisperText !== null && currentWhisper && profileData.enableNotifications) {
+                    showWhisperNotification();
+                }
+                lastSeenWhisperText = currentWhisper;
+            }
+            
             updateView();
         });
     }
