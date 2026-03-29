@@ -1,5 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" fill="#F8F5EE" rx="100" />
-  <circle cx="256" cy="256" r="160" fill="none" stroke="#D1ACA5" stroke-width="32" />
-  <path d="M160 256 L352 256 M256 160 L256 352" stroke="#D1ACA5" stroke-width="32" stroke-linecap="round"/>
+  <rect width="512" height="512" fill="#F8F5EE" rx="80" />
+  
+  <!-- 浪漫的愛心背景襯底 -->
+  <path d="M256,410 C100,290 100,160 180,160 C220,160 256,200 256,200 C256,200 292,160 332,160 C412,160 412,290 256,410 Z" fill="#f4eceb"/>
+  
+  <!-- 情侶相擁剪影 -->
+  <!-- 左側人物 -->
+  <circle cx="210" cy="210" r="40" fill="#C2968D" />
+  <path d="M210,260 C140,260 130,330 130,410 L260,410 C260,320 240,260 210,260 Z" fill="#C2968D" />
+  
+  <!-- 右側人物 (微傾靠向左側) -->
+  <circle cx="285" cy="235" r="35" fill="#D1ACA5" />
+  <path d="M285,280 C340,280 370,340 370,410 L200,410 C220,350 240,280 285,280 Z" fill="#D1ACA5" />
 </svg>

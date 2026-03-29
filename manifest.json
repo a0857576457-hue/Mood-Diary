@@ -1,6 +1,6 @@
 {
-  "name": "質感記帳本",
-  "short_name": "記帳本",
+  "name": "心情日記",
+  "short_name": "心情日記",
   "start_url": ".",
   "display": "standalone",
   "background_color": "#F8F5EE",
