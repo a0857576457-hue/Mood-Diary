@@ -1059,15 +1059,20 @@ function initGameSystem() {
     });
 }
 
+// 產生雙方共用的遊戲房間 ID
+function getGameDocId() {
+    return [currentUser.email.replace(/[@.]/g, '_'), profileData.partnerEmail.replace(/[@.]/g, '_')].sort().join('-');
+}
+
 // 綁定主畫面的開啟與關閉按鈕
 gameBtn.addEventListener('click', () => {
-    if (!profileData || !profileData.partnerUid) {
-        alert('請先綁定另一半才能開啟你畫我猜喔！');
+    if (!profileData || !profileData.partnerEmail) {
+        alert('請先透過右上角設定綁定另一半的 Email 才能開啟你畫我猜喔！');
         return;
     }
     gameModal.classList.remove('hidden');
     // 若為自己的畫圖回合，重新刷一次 Canvas 避免寬度跑掉
-    if (currentGameData && currentGameData.status === 'waiting_for_drawing' && currentGameData.turnUid === currentUser.uid) {
+    if (currentGameData && currentGameData.status === 'waiting_for_drawing' && currentGameData.turnUid === currentUser.email) {
         const rect = dCanvas.parentElement.getBoundingClientRect();
         if(rect.width > 0) {
             dCanvas.width = rect.width;
@@ -1086,18 +1091,18 @@ closeGameBtn.addEventListener('click', () => {
 
 // 資料庫同步與倒數計時
 function setupGameSync() {
-    if (!profileData || !profileData.partnerCode) return;
+    if (!profileData || !profileData.partnerEmail) return;
     
     if (gameUnsubscribe) gameUnsubscribe();
     
-    const gameDocRef = doc(db, 'games', profileData.partnerCode);
+    const gameDocRef = doc(db, 'games', getGameDocId());
     
     gameUnsubscribe = onSnapshot(gameDocRef, (snap) => {
         if (!snap.exists()) {
             currentGameData = {
                 status: 'waiting_for_drawing',
-                turnUid: currentUser.uid,
-                drawerUid: currentUser.uid,
+                turnUid: currentUser.email,
+                drawerUid: currentUser.email,
                 drawingImage: '',
                 answer: '',
                 deadline: Date.now() + 12 * 60 * 60 * 1000,
@@ -1122,11 +1127,11 @@ function setupGameSync() {
 
 // 檢查是否逾期
 async function checkGameTimeout(docRef) {
-    if (!currentGameData || !profileData.partnerUid) return;
+    if (!currentGameData || !profileData.partnerEmail) return;
     const now = Date.now();
     // 只有輪到這台設備的人負責戳破超時 (避免兩隻手機同時送出覆蓋)
-    if (currentGameData.turnUid === currentUser.uid && now > currentGameData.deadline) {
-        let nextTurnUid = profileData.partnerUid; // 強制換對方的回合畫畫
+    if (currentGameData.turnUid === currentUser.email && now > currentGameData.deadline) {
+        let nextTurnUid = profileData.partnerEmail; // 強制換對方的回合畫畫
         
         currentGameData.status = 'waiting_for_drawing';
         currentGameData.turnUid = nextTurnUid;
@@ -1144,7 +1149,7 @@ async function checkGameTimeout(docRef) {
 function updateGameUI() {
     if (!currentGameData) return;
     
-    const isMyTurn = currentGameData.turnUid === currentUser.uid;
+    const isMyTurn = currentGameData.turnUid === currentUser.email;
     
     if (isMyTurn && gameModal.classList.contains('hidden')) {
         gameBtn.innerHTML = '🎨 畫猜 <span style="background:red;width:8px;height:8px;border-radius:50%;display:inline-block;margin-left:4px;"></span>';
@@ -1209,19 +1214,20 @@ function updateTimerDisplay() {
 submitDrawingBtn.addEventListener('click', async () => {
     const answer = gameAnswerInput.value.trim();
     if (!answer) return alert('必須設定圖畫的解答喔！');
-    if (!profileData.partnerUid) return alert('必須先綁定另一半才能玩！');
+    if (!profileData.partnerEmail) return alert('必須先綁定另一半才能玩！');
     
     submitDrawingBtn.disabled = true;
     submitDrawingBtn.textContent = '上傳畫作中...';
     
     try {
         const dataUrl = dCanvas.toDataURL('image/jpeg', 0.8);
-        const nextTurnUid = profileData.partnerUid; // 換對方猜
+        const nextTurnUid = profileData.partnerEmail; // 換對方猜
         
-        await setDoc(doc(db, 'games', profileData.partnerCode), {
+        // 確保儲存路徑符合設定
+        await setDoc(doc(db, 'games', getGameDocId()), {
             status: 'waiting_for_guess',
             turnUid: nextTurnUid,
-            drawerUid: currentUser.uid,
+            drawerUid: currentUser.email,
             drawingImage: dataUrl,
             answer: answer,
             deadline: Date.now() + 12 * 60 * 60 * 1000,
@@ -1254,11 +1260,11 @@ submitGuessBtn.addEventListener('click', async () => {
         let isCorrect = userGuess.includes(correctAns) || correctAns.includes(userGuess);
         
         // 依照規則，猜完後輪回猜的人畫畫 (回合強制轉移)
-        const nextTurnUid = currentUser.uid; 
+        const nextTurnUid = currentUser.email; 
         
         let newResult = isCorrect ? '🎉 上一局猜對了！上一幅畫是「' + currentGameData.answer + '」' : '❌ 上一局猜錯囉！上一幅畫其實是「' + currentGameData.answer + '」';
         
-        await setDoc(doc(db, 'games', profileData.partnerCode), {
+        await setDoc(doc(db, 'games', getGameDocId()), {
             status: 'waiting_for_drawing',
             turnUid: nextTurnUid,
             drawerUid: nextTurnUid,
