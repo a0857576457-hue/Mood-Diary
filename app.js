@@ -42,6 +42,8 @@ const mainApp = document.getElementById('main-app');
 const loginBtn = document.getElementById('login-btn');
 const logoutBtn = document.getElementById('logout-btn');
 
+let editingEntryId = null; 
+
 const accountInfo = document.getElementById('account-info');
 
 const megaphoneBtn = document.getElementById('megaphone-btn');
@@ -480,22 +482,30 @@ async function handleAddExpense(e) {
     const amountVal = document.getElementById('expense-amount').value;
     const amount = amountVal ? parseFloat(amountVal) : 0;
     
-    const newEntry = {
+    const entryData = {
         uid: currentUser.uid,
         userEmail: currentUser.email, // 讓伴侶靠 email 撈取
         date,
         moodEmoji,
         moodMessage,
         category,
-        amount,
-        timestamp: Date.now()
+        amount
     };
     
     try {
-        await addDoc(collection(db, 'entries'), newEntry);
-        // 清空表單
+        if (editingEntryId) {
+            await setDoc(doc(db, 'entries', editingEntryId), entryData, { merge: true });
+        } else {
+            entryData.timestamp = Date.now();
+            await addDoc(collection(db, 'entries'), entryData);
+        }
+        
+        // 清空表單與重置編輯狀態
         document.getElementById('expense-amount').value = '';
         document.getElementById('mood-message').value = '';
+        editingEntryId = null;
+        document.getElementById('submit-record-btn').textContent = '儲存日記';
+        
         // 儲存成功後，最直覺的反饋就是直接關閉視窗，讓使用者看到底下的月曆表情更新！
         closeModal();
     } catch(err) {
@@ -506,6 +516,11 @@ async function handleAddExpense(e) {
 }
 
 function openModal(defaultDateStr) {
+    editingEntryId = null;
+    document.getElementById('expense-amount').value = '';
+    document.getElementById('mood-message').value = '';
+    document.getElementById('submit-record-btn').textContent = '儲存日記';
+    
     expenseDateInput.value = defaultDateStr;
     renderDailyRecords(defaultDateStr);
     expenseModal.classList.remove('hidden');
@@ -543,19 +558,45 @@ function renderDailyRecords(dateStr) {
         dailyMy.forEach(exp => {
             const li = document.createElement('li');
             li.className = 'record-item';
+            li.style.cursor = 'pointer';
+            li.title = '點擊即可編輯此紀錄';
             li.innerHTML = `
                 <div class="record-info">
-                    <div style="font-size:1.2rem; min-width: 25px;">${exp.moodEmoji || ''}</div>
+                    <div style="font-size:1.5rem; min-width: 35px;">${exp.moodEmoji || ''}</div>
                     <div class="record-meta">
                         ${exp.amount > 0 ? `<span class="record-cat" style="color:${categoryColors[exp.category]}">${exp.category}</span>` : '<span class="record-cat">心情</span>'}
-                        ${exp.moodMessage ? `<span class="record-note" style="color:var(--primary-color)">對話：${exp.moodMessage}</span>` : ''}
+                        <span style="font-size:0.85rem; color:var(--text-secondary); margin-left:4px;">(點擊編輯✏️)</span>
+                        ${exp.moodMessage ? `<div class="record-note" style="color:var(--primary-color); font-size:1.2rem; margin-top:6px; font-weight:500;">「${exp.moodMessage}」</div>` : ''}
                     </div>
                 </div>
                 <div style="display:flex; align-items:center;">
-                    ${exp.amount > 0 ? `<span class="record-amount">$${exp.amount.toLocaleString()}</span>` : ''}
-                    <button class="record-actions delete-btn" onclick="deleteEntry('${exp.id}', '${dateStr}')">刪除</button>
+                    ${exp.amount > 0 ? `<span class="record-amount" style="font-size:1.2rem;">$${exp.amount.toLocaleString()}</span>` : ''}
+                    <button class="record-actions delete-btn" onclick="event.stopPropagation(); deleteEntry('${exp.id}', '${dateStr}')">刪除</button>
                 </div>
             `;
+            
+            li.addEventListener('click', () => {
+                editingEntryId = exp.id;
+                document.getElementById('expense-amount').value = exp.amount > 0 ? exp.amount : '';
+                document.getElementById('mood-message').value = exp.moodMessage || '';
+                
+                if (exp.moodEmoji) {
+                    const r = document.querySelector(`input[name="moodEmoji"][value="${exp.moodEmoji}"]`);
+                    if(r) r.checked = true;
+                }
+                if (exp.category) {
+                    const c = document.querySelector(`input[name="category"][value="${exp.category}"]`);
+                    if(c) c.checked = true;
+                }
+                
+                document.getElementById('submit-record-btn').textContent = '💾 更新此紀錄';
+                
+                // 滾動並讓輸入框反白，引導使用者修改
+                const msgInput = document.getElementById('mood-message');
+                msgInput.focus();
+                msgInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            });
+            
             dailyRecordsList.appendChild(li);
         });
     } else {
@@ -566,10 +607,11 @@ function renderDailyRecords(dateStr) {
     partnerDailyMoodContainer.innerHTML = '';
     const dailyPartner = partnerEntries.filter(exp => exp.date === dateStr && exp.moodEmoji).sort((a,b) => b.timestamp - a.timestamp);
     if(dailyPartner.length > 0) {
-        let html = `<strong>另一半（${profileData.partnerEmail}）：</strong><br/>`;
+        let html = `<strong style="font-size:1.1rem; color:var(--text-primary)">另一半的心情：</strong><br/>`;
         dailyPartner.forEach(p => {
-            html += `<div style="margin-top:0.5rem">
-                <span style="font-size:1.2rem">${p.moodEmoji}</span> ${p.moodMessage ? `"${p.moodMessage}"` : '（有心情波動但沒留下訊息）'}
+            html += `<div style="margin-top:0.5rem; display:flex; align-items:center;">
+                <span style="font-size:1.8rem; margin-right:8px;">${p.moodEmoji}</span> 
+                <span style="font-size:1.2rem; color: #d63384; font-weight:500;">${p.moodMessage ? `「${p.moodMessage}」` : '（純粹留個表情沒說話）'}</span>
             </div>`;
         });
         partnerDailyMoodContainer.innerHTML = html;
