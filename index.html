@@ -42,6 +42,7 @@
                 <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom: 0.5rem; flex-direction:column; gap:0.5rem;">
                     <h2 style="margin:0;">心情與花費總覽</h2>
                     <div style="display:flex; gap:0.5rem; width:100%;">
+                        <button id="megaphone-btn" class="icon-btn" style="border:1px solid var(--primary-color); padding:4px 8px; border-radius:8px; font-size:0.8rem; background:var(--primary-color); color:white">📢 大聲公</button>
                         <button id="partner-setting-btn" class="icon-btn" style="border:1px solid rgba(0,0,0,0.1); padding:4px 8px; border-radius:8px; font-size:0.8rem; background:rgba(255,255,255,0.5)">💖 另一半設定</button>
                         <button id="logout-btn" class="icon-btn" style="border:1px solid rgba(0,0,0,0.1); padding:4px 8px; border-radius:8px; font-size:0.8rem; background:rgba(255,255,255,0.5)">👈 登出</button>
                     </div>
@@ -172,6 +173,27 @@
                 <input type="email" id="partner-email-input" placeholder="例如：lover@gmail.com" autocomplete="off" spellcheck="false" data-lpignore="true">
             </div>
             <button id="save-partner-btn" class="primary-btn full-width">儲存綁定</button>
+         </div>
+    </div>
+
+    <!-- 大聲公 Modal -->
+    <div id="megaphone-modal" class="modal-overlay hidden">
+         <div class="modal glass-panel">
+            <div class="modal-header">
+                <h3>📢 頂部大聲公</h3>
+                <button id="close-megaphone-btn" class="close-btn">&times;</button>
+            </div>
+            
+            <div style="margin-bottom: 1.5rem; padding: 1rem; background: rgba(255,255,255,0.6); border-radius: var(--radius-sm);">
+                <span style="font-size:0.85rem; color:var(--text-secondary);">伴侶的大聲公：</span>
+                <div id="partner-megaphone-text" style="font-size: 1.1rem; margin-top: 0.5rem; min-height: 1.5rem; word-break: break-all;">尚無留言</div>
+            </div>
+
+            <div class="form-group" autocomplete="off">
+                <label>我的大聲公（儲存後傳送給對方）</label>
+                <input type="text" id="my-megaphone-input" placeholder="例如：下班記得買牛奶喔！" autocomplete="off" spellcheck="false" data-lpignore="true">
+            </div>
+            <button id="save-megaphone-btn" class="primary-btn full-width">送出大聲公</button>
          </div>
     </div>
 

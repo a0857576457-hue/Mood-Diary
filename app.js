@@ -43,6 +43,13 @@ const loginBtn = document.getElementById('login-btn');
 const logoutBtn = document.getElementById('logout-btn');
 
 const accountInfo = document.getElementById('account-info');
+
+const megaphoneBtn = document.getElementById('megaphone-btn');
+const megaphoneModal = document.getElementById('megaphone-modal');
+const closeMegaphoneBtn = document.getElementById('close-megaphone-btn');
+const myMegaphoneInput = document.getElementById('my-megaphone-input');
+const partnerMegaphoneText = document.getElementById('partner-megaphone-text');
+const saveMegaphoneBtn = document.getElementById('save-megaphone-btn');
 const partnerSettingBtn = document.getElementById('partner-setting-btn');
 const partnerSetupModal = document.getElementById('partner-setup-modal');
 const closePartnerBtn = document.getElementById('close-partner-btn');
@@ -153,6 +160,53 @@ savePartnerBtn.addEventListener('click', async () => {
     }
 });
 
+// === 大聲公功能 ===
+megaphoneBtn.addEventListener('click', async () => {
+    renderMegaphones(); // 點開時確保顯示最新內容
+    megaphoneModal.classList.remove('hidden');
+    history.pushState({ modal: 'megaphone' }, '', '#megaphone');
+    
+    // 消掉小紅點
+    megaphoneBtn.innerHTML = '📢 大聲公';
+
+    // 【閱後即焚】如果對方有留言，我看過之後就幫他從資料庫抹除
+    const pMega = partnerEntries.find(e => e.isMegaphone);
+    if (pMega && pMega.megaphoneText) {
+        try {
+            await setDoc(doc(db, 'entries', pMega.id), { megaphoneText: '' }, { merge: true });
+        } catch (e) {
+            console.error("清除留言失敗: ", e);
+        }
+    }
+});
+
+closeMegaphoneBtn.addEventListener('click', () => {
+    megaphoneModal.classList.add('hidden');
+    if (location.hash === '#megaphone') history.back();
+});
+
+saveMegaphoneBtn.addEventListener('click', async () => {
+    saveMegaphoneBtn.disabled = true;
+    const text = myMegaphoneInput.value.trim();
+    const megaRef = doc(db, 'entries', `mega_${currentUser.uid}`);
+    try {
+        await setDoc(megaRef, {
+            uid: currentUser.uid,
+            userEmail: currentUser.email,
+            isMegaphone: true,
+            megaphoneText: text,
+            timestamp: Date.now()
+        }, { merge: true });
+        
+        megaphoneModal.classList.add('hidden');
+        if (location.hash === '#megaphone') history.back();
+    } catch(err) {
+        alert('廣播失敗: ' + err.message);
+    } finally {
+        saveMegaphoneBtn.disabled = false;
+    }
+});
+
 // 拉取個人設定
 async function fetchUserProfile() {
     try {
@@ -221,6 +275,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!partnerSetupModal.classList.contains('hidden')) {
             partnerSetupModal.classList.add('hidden');
         }
+        if (!megaphoneModal.classList.contains('hidden')) {
+            megaphoneModal.classList.add('hidden');
+        }
     });
 });
 
@@ -264,7 +321,38 @@ function setupEventListeners() {
 function updateView() {
     renderCalendar();
     renderSummary();
+    renderMegaphones();
     currentMonthDisplay.textContent = `${currentViewingDate.getFullYear()} 年 ${currentViewingDate.getMonth() + 1} 月`;
+}
+
+function renderMegaphones() {
+    if (!myMegaphoneInput || !partnerMegaphoneText) return;
+    
+    // 渲染我發出去的大聲公 (如果對方看過並清空了，這裡也會變空，形同「已讀提示」)
+    const myMega = myEntries.find(e => e.isMegaphone);
+    if (myMega && document.activeElement !== myMegaphoneInput) {
+        myMegaphoneInput.value = myMega.megaphoneText || '';
+    }
+    
+    const pMega = partnerEntries.find(e => e.isMegaphone);
+
+    // 如果沒打開信箱，且有新留言，就亮起小紅點通知
+    if (pMega && pMega.megaphoneText && megaphoneModal.classList.contains('hidden')) {
+        megaphoneBtn.innerHTML = '📢 大聲公 <span style="background:red;width:8px;height:8px;border-radius:50%;display:inline-block;margin-left:4px;"></span>';
+    } else {
+        megaphoneBtn.innerHTML = '📢 大聲公';
+    }
+    
+    // 如果小視窗現在開著，千萬不能馬上覆蓋掉畫面上的字 (因為背景正在執行閱後即焚)
+    if (!megaphoneModal.classList.contains('hidden')) {
+        return;
+    }
+
+    if (pMega && pMega.megaphoneText) {
+        partnerMegaphoneText.textContent = pMega.megaphoneText;
+    } else {
+        partnerMegaphoneText.textContent = '尚無留言';
+    }
 }
 
 function renderCalendar() {
@@ -336,7 +424,7 @@ function renderSummary() {
     const year = currentViewingDate.getFullYear();
     const mmStr = String(currentViewingDate.getMonth() + 1).padStart(2, '0');
     
-    const monthlyExpenses = myEntries.filter(exp => exp.date.startsWith(`${year}-${mmStr}`) && exp.amount > 0);
+    const monthlyExpenses = myEntries.filter(exp => exp.date && exp.date.startsWith(`${year}-${mmStr}`) && exp.amount > 0);
     const total = monthlyExpenses.reduce((sum, exp) => sum + Number(exp.amount), 0);
     
     animateValue(monthlyTotalAmount, parseInt(monthlyTotalAmount.textContent.replace(/,/g, '') || 0), total, 600);
