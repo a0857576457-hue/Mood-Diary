@@ -131,6 +131,23 @@ const dailyRecordsContainer = document.getElementById('daily-records');
 const dailyRecordsList = document.getElementById('daily-records-list');
 const partnerDailyMoodContainer = document.getElementById('partner-daily-mood');
 
+// Game Modal 相關
+const gameBtn = document.getElementById('game-btn');
+const gameModal = document.getElementById('game-modal');
+const closeGameBtn = document.getElementById('close-game-btn');
+const dCanvas = document.getElementById('drawing-canvas');
+const guessImage = document.getElementById('guess-image');
+const drawerTools = document.getElementById('drawer-tools');
+const drawerInputZone = document.getElementById('drawer-input-zone');
+const guesserInputZone = document.getElementById('guesser-input-zone');
+const gameStatusText = document.getElementById('game-status-text');
+const gameTimerDisplay = document.getElementById('game-timer-display');
+const gameLastResult = document.getElementById('game-last-result');
+const gameAnswerInput = document.getElementById('game-answer-input');
+const gameGuessInput = document.getElementById('game-guess-input');
+const submitDrawingBtn = document.getElementById('submit-drawing-btn');
+const submitGuessBtn = document.getElementById('submit-guess-btn');
+
 // 類別顏色對應
 const categoryColors = {
     '飲食': 'var(--cat-food)',
@@ -333,6 +350,9 @@ function setupRealtimeSync() {
     isPartnerFirstLoad = true;
     lastSeenWhisperText = null;
     
+    // 啟動你畫我猜的同步
+    setupGameSync();
+    
     // 監聽我自己的所有紀錄
     const myQ = query(collection(db, 'entries'), where('uid', '==', currentUser.uid));
     myUnsubscribe = onSnapshot(myQ, (snapshot) => {
@@ -395,6 +415,7 @@ function setupRealtimeSync() {
 // === 畫面更新邏輯 ===
 document.addEventListener('DOMContentLoaded', () => {
     setupEventListeners();
+    initGameSystem();
     
     // 攔截手機返回鍵 (PopState)
     window.addEventListener('popstate', (e) => {
@@ -948,3 +969,318 @@ function animateValue(obj, start, end, duration) {
     };
     window.requestAnimationFrame(step);
 }
+
+// ==================== 你畫我猜小遊戲 ====================
+let gameUnsubscribe = null;
+let currentGameData = null;
+let drawCtx = null;
+let isDrawing = false;
+let currentLineColor = '#000000';
+let gameTimerInterval = null;
+
+function initGameSystem() {
+    drawCtx = dCanvas.getContext('2d');
+    
+    // 初始化畫布設定 (採用白色背景，避免輸出 JPG 變黑)
+    function clearCanvas() {
+        drawCtx.fillStyle = '#ffffff';
+        drawCtx.fillRect(0, 0, dCanvas.width, dCanvas.height);
+        drawCtx.lineCap = 'round';
+        drawCtx.lineJoin = 'round';
+        drawCtx.lineWidth = 4;
+        drawCtx.strokeStyle = currentLineColor;
+    }
+    clearCanvas();
+    
+    // 轉換座標的 helper (適應任何 CSS width)
+    function getPos(e) {
+        const rect = dCanvas.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        return {
+            x: (clientX - rect.left) * (dCanvas.width / rect.width),
+            y: (clientY - rect.top) * (dCanvas.height / rect.height)
+        };
+    }
+
+    function startDraw(e) {
+        if (drawerTools.classList.contains('hidden')) return;
+        e.preventDefault();
+        isDrawing = true;
+        const pos = getPos(e);
+        drawCtx.beginPath();
+        drawCtx.moveTo(pos.x, pos.y);
+    }
+
+    function drawing(e) {
+        if (!isDrawing) return;
+        e.preventDefault();
+        const pos = getPos(e);
+        drawCtx.lineTo(pos.x, pos.y);
+        drawCtx.stroke();
+    }
+
+    function stopDraw(e) {
+        if (isDrawing) {
+            e.preventDefault();
+            isDrawing = false;
+            drawCtx.beginPath();
+        }
+    }
+
+    // 事件綁定 (滑鼠)
+    dCanvas.addEventListener('mousedown', startDraw);
+    dCanvas.addEventListener('mousemove', drawing);
+    dCanvas.addEventListener('mouseup', stopDraw);
+    dCanvas.addEventListener('mouseout', stopDraw);
+    // 事件綁定 (觸控)
+    dCanvas.addEventListener('touchstart', startDraw, {passive: false});
+    dCanvas.addEventListener('touchmove', drawing, {passive: false});
+    dCanvas.addEventListener('touchend', stopDraw, {passive: false});
+    dCanvas.addEventListener('touchcancel', stopDraw, {passive: false});
+
+    // 工具列綁定
+    document.querySelectorAll('.color-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            document.querySelectorAll('.color-btn').forEach(b => {
+                b.style.borderColor = b.dataset.color === '#000000' ? '#000' : 'transparent';
+                if (b === e.target && b.dataset.color !== '#000000') b.style.borderColor = '#000';
+            });
+            if (e.target.dataset.color === '#000000') e.target.style.borderColor = '#fff'; // 反差標示
+            currentLineColor = e.target.dataset.color;
+            drawCtx.strokeStyle = currentLineColor;
+            playSound(300, 'sine', 0.05, 100);
+        });
+    });
+
+    document.getElementById('clear-canvas-btn').addEventListener('click', () => {
+        clearCanvas();
+        playSound(200, 'sawtooth', 0.1, 100);
+    });
+}
+
+// 綁定主畫面的開啟與關閉按鈕
+gameBtn.addEventListener('click', () => {
+    if (!profileData || !profileData.partnerUid) {
+        alert('請先綁定另一半才能開啟你畫我猜喔！');
+        return;
+    }
+    gameModal.classList.remove('hidden');
+    // 若為自己的畫圖回合，重新刷一次 Canvas 避免寬度跑掉
+    if (currentGameData && currentGameData.status === 'waiting_for_drawing' && currentGameData.turnUid === currentUser.uid) {
+        const rect = dCanvas.parentElement.getBoundingClientRect();
+        if(rect.width > 0) {
+            dCanvas.width = rect.width;
+            dCanvas.height = 300;
+            drawCtx.fillStyle = '#ffffff';
+            drawCtx.fillRect(0, 0, dCanvas.width, dCanvas.height);
+            drawCtx.lineWidth = 4;
+            drawCtx.strokeStyle = currentLineColor;
+        }
+    }
+});
+
+closeGameBtn.addEventListener('click', () => {
+    gameModal.classList.add('hidden');
+});
+
+// 資料庫同步與倒數計時
+function setupGameSync() {
+    if (!profileData || !profileData.partnerCode) return;
+    
+    if (gameUnsubscribe) gameUnsubscribe();
+    
+    const gameDocRef = doc(db, 'games', profileData.partnerCode);
+    
+    gameUnsubscribe = onSnapshot(gameDocRef, (snap) => {
+        if (!snap.exists()) {
+            currentGameData = {
+                status: 'waiting_for_drawing',
+                turnUid: currentUser.uid,
+                drawerUid: currentUser.uid,
+                drawingImage: '',
+                answer: '',
+                deadline: Date.now() + 12 * 60 * 60 * 1000,
+                lastResult: '這是你們的第一局！'
+            };
+            setDoc(gameDocRef, currentGameData);
+        } else {
+            currentGameData = snap.data();
+            checkGameTimeout(gameDocRef);
+            updateGameUI();
+        }
+    });
+    
+    if (gameTimerInterval) clearInterval(gameTimerInterval);
+    gameTimerInterval = setInterval(() => {
+        if(currentGameData) {
+            checkGameTimeout(gameDocRef);
+            updateTimerDisplay();
+        }
+    }, 1000);
+}
+
+// 檢查是否逾期
+async function checkGameTimeout(docRef) {
+    if (!currentGameData || !profileData.partnerUid) return;
+    const now = Date.now();
+    // 只有輪到這台設備的人負責戳破超時 (避免兩隻手機同時送出覆蓋)
+    if (currentGameData.turnUid === currentUser.uid && now > currentGameData.deadline) {
+        let nextTurnUid = profileData.partnerUid; // 強制換對方的回合畫畫
+        
+        currentGameData.status = 'waiting_for_drawing';
+        currentGameData.turnUid = nextTurnUid;
+        currentGameData.drawerUid = nextTurnUid;
+        currentGameData.drawingImage = '';
+        currentGameData.answer = '';
+        currentGameData.deadline = Date.now() + 12 * 60 * 60 * 1000;
+        currentGameData.lastResult = '上一局太久沒動作 (逾時 12 小時)，已自動換人！';
+        
+        await setDoc(docRef, currentGameData);
+    }
+}
+
+// 更新畫面的小紅點與 Modal 狀態
+function updateGameUI() {
+    if (!currentGameData) return;
+    
+    const isMyTurn = currentGameData.turnUid === currentUser.uid;
+    
+    if (isMyTurn && gameModal.classList.contains('hidden')) {
+        gameBtn.innerHTML = '🎨 畫猜 <span style="background:red;width:8px;height:8px;border-radius:50%;display:inline-block;margin-left:4px;"></span>';
+    } else {
+        gameBtn.innerHTML = '🎨 畫猜';
+    }
+    
+    gameLastResult.textContent = currentGameData.lastResult || '';
+    
+    if (currentGameData.status === 'waiting_for_drawing') {
+        if (isMyTurn) {
+            gameStatusText.textContent = '🎨 您的回合！請作畫出題';
+            dCanvas.style.display = 'block';
+            guessImage.style.display = 'none';
+            drawerTools.classList.remove('hidden');
+            drawerInputZone.classList.remove('hidden');
+            guesserInputZone.classList.add('hidden');
+        } else {
+            gameStatusText.textContent = '⏳ 等待對方作畫中...';
+            dCanvas.style.display = 'none';
+            guessImage.style.display = 'block';
+            guessImage.src = ''; 
+            drawerTools.classList.add('hidden');
+            drawerInputZone.classList.add('hidden');
+            guesserInputZone.classList.add('hidden');
+        }
+    } else if (currentGameData.status === 'waiting_for_guess') {
+        dCanvas.style.display = 'none';
+        guessImage.style.display = 'block';
+        guessImage.src = currentGameData.drawingImage || '';
+        
+        drawerTools.classList.add('hidden');
+        drawerInputZone.classList.add('hidden');
+        
+        if (isMyTurn) {
+            gameStatusText.textContent = '🤔 您的回合！換您猜猜看這畫了什麼';
+            guesserInputZone.classList.remove('hidden');
+        } else {
+            gameStatusText.textContent = '⏳ 對方正在努力猜測您的畫作...';
+            guesserInputZone.classList.add('hidden');
+        }
+    }
+}
+
+function updateTimerDisplay() {
+    if (!gameModal || gameModal.classList.contains('hidden') || !currentGameData) return;
+    
+    const now = Date.now();
+    const diff = currentGameData.deadline - now;
+    if (diff <= 0) {
+        gameTimerDisplay.textContent = '⏳ 結算中...';
+        return;
+    }
+    
+    const hrs = Math.floor(diff / (1000 * 60 * 60));
+    const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const secs = Math.floor((diff % (1000 * 60)) / 1000);
+    gameTimerDisplay.textContent = `倒數 ${String(hrs).padStart(2,'0')}:${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
+}
+
+// 送出畫作給對方猜
+submitDrawingBtn.addEventListener('click', async () => {
+    const answer = gameAnswerInput.value.trim();
+    if (!answer) return alert('必須設定圖畫的解答喔！');
+    if (!profileData.partnerUid) return alert('必須先綁定另一半才能玩！');
+    
+    submitDrawingBtn.disabled = true;
+    submitDrawingBtn.textContent = '上傳畫作中...';
+    
+    try {
+        const dataUrl = dCanvas.toDataURL('image/jpeg', 0.8);
+        const nextTurnUid = profileData.partnerUid; // 換對方猜
+        
+        await setDoc(doc(db, 'games', profileData.partnerCode), {
+            status: 'waiting_for_guess',
+            turnUid: nextTurnUid,
+            drawerUid: currentUser.uid,
+            drawingImage: dataUrl,
+            answer: answer,
+            deadline: Date.now() + 12 * 60 * 60 * 1000,
+            lastResult: '畫作已送出，等待對方答題！'
+        });
+        
+        gameAnswerInput.value = '';
+        closeGameBtn.click();
+        playSound(300, 'sine', 0.1, 400); playSound(500, 'sine', 0.2, 600);
+    } catch(err) {
+        console.error(err);
+        alert('上傳發生錯誤，請重試。');
+    }
+    submitDrawingBtn.disabled = false;
+    submitDrawingBtn.textContent = '發送給伴侶猜';
+});
+
+// 送出解答
+submitGuessBtn.addEventListener('click', async () => {
+    const guess = gameGuessInput.value.trim();
+    if (!guess) return alert('請輸入您的猜測！');
+    
+    submitGuessBtn.disabled = true;
+    
+    try {
+        // 寬鬆比對：轉小寫、去除內部所有空白
+        const correctAns = (currentGameData.answer || '').toLowerCase().replace(/\s+/g,'');
+        const userGuess = guess.toLowerCase().replace(/\s+/g,'');
+        
+        let isCorrect = userGuess.includes(correctAns) || correctAns.includes(userGuess);
+        
+        // 依照規則，猜完後輪回猜的人畫畫 (回合強制轉移)
+        const nextTurnUid = currentUser.uid; 
+        
+        let newResult = isCorrect ? '🎉 上一局猜對了！上一幅畫是「' + currentGameData.answer + '」' : '❌ 上一局猜錯囉！上一幅畫其實是「' + currentGameData.answer + '」';
+        
+        await setDoc(doc(db, 'games', profileData.partnerCode), {
+            status: 'waiting_for_drawing',
+            turnUid: nextTurnUid,
+            drawerUid: nextTurnUid,
+            drawingImage: '',
+            answer: '',
+            deadline: Date.now() + 12 * 60 * 60 * 1000,
+            lastResult: newResult
+        });
+        
+        gameGuessInput.value = '';
+        if(isCorrect) {
+            playSound(200, 'sine', 0.1, 400); playSound(400, 'sine', 0.2, 600);
+            alert('答對了！這局結束，現在輪到您畫圖出題囉！');  
+        } else {
+            playSound(400, 'square', 0.2, 200);
+            alert('哎呀猜錯了！正確答案是：' + currentGameData.answer + '\n沒關係，現在輪到您出題報仇了！');
+        }
+        closeGameBtn.click();
+    } catch(err) {
+        console.error(err);
+        alert('驗證發生錯誤，請重試。');
+    }
+    submitGuessBtn.disabled = false;
+});
+

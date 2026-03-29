@@ -41,9 +41,10 @@
             <div class="summary-header">
                 <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom: 0.5rem; flex-direction:column; gap:0.5rem;">
                     <h2 style="margin:0;">心情與花費總覽</h2>
-                    <div style="display:flex; gap:0.5rem; width:100%;">
+                    <div style="display:flex; gap:0.5rem; width:100%; flex-wrap: wrap;">
+                        <button id="game-btn" class="icon-btn" style="position:relative; border:1px solid #ffcc00; padding:4px 8px; border-radius:8px; font-size:0.8rem; background:#ffeb99; color:#b28000; font-weight:bold;">🎨 畫猜</button>
                         <button id="megaphone-btn" class="icon-btn" style="border:1px solid var(--primary-color); padding:4px 8px; border-radius:8px; font-size:0.8rem; background:var(--primary-color); color:white">🤫 悄悄話</button>
-                        <button id="partner-setting-btn" class="icon-btn" style="border:1px solid rgba(0,0,0,0.1); padding:4px 8px; border-radius:8px; font-size:0.8rem; background:rgba(255,255,255,0.5)">💖 另一半設定</button>
+                        <button id="partner-setting-btn" class="icon-btn" style="border:1px solid rgba(0,0,0,0.1); padding:4px 8px; border-radius:8px; font-size:0.8rem; background:rgba(255,255,255,0.5)">💖 伴侶設定</button>
                         <button id="logout-btn" class="icon-btn" style="border:1px solid rgba(0,0,0,0.1); padding:4px 8px; border-radius:8px; font-size:0.8rem; background:rgba(255,255,255,0.5)">👈 登出</button>
                     </div>
                 </div>
@@ -266,6 +267,58 @@
     </div>
 
     <script type="module" src="app.js"></script>
+    <!-- 你畫我猜 Modal -->
+    <div id="game-modal" class="modal-overlay hidden">
+         <div class="modal glass-panel" style="max-height: 90vh; overflow-y: auto; width: 100%; max-width: 450px;">
+             <div class="modal-header">
+                 <h2>🎨 你畫我猜</h2>
+                 <button class="close-btn" id="close-game-btn">&times;</button>
+             </div>
+             
+             <!-- 狀態列 -->
+             <div style="background: rgba(255,255,255,0.5); padding: 0.8rem; border-radius: var(--radius-sm); margin: 0.5rem 0; text-align: center;">
+                 <h3 id="game-status-text" style="color: var(--primary-color); margin: 0;">載入中...</h3>
+                 <div id="game-timer-display" style="font-size: 0.9rem; color: var(--text-secondary); margin-top: 4px; font-family: monospace;"></div>
+                 <div id="game-last-result" style="font-size: 0.85rem; color: #d63384; margin-top: 4px; font-weight: bold;"></div>
+             </div>
+
+             <!-- 畫布區塊 -->
+             <div class="form-group" style="margin-bottom: 0.5rem;">
+                 <div id="canvas-container" style="width: 100%; background: #fff; border-radius: var(--radius-sm); border: 2px solid rgba(0,0,0,0.1); overflow: hidden; position: relative;">
+                     <!-- 畫布預設 300x300，後續用 JS 調整 CSS 顯示比例 -->
+                     <canvas id="drawing-canvas" width="300" height="300" style="display: block; touch-action: none; width: 100%; background: #fff; cursor: crosshair;"></canvas>
+                     <img id="guess-image" src="" style="display: none; width: 100%; object-fit: contain;" alt="伴侶畫作">
+                 </div>
+             </div>
+             
+             <!-- 畫家工具列 (只有畫家畫圖時顯示) -->
+             <div id="drawer-tools" class="hidden" style="display: flex; gap: 0.5rem; justify-content: space-between; margin-bottom: 1rem; align-items: center;">
+                 <div style="display: flex; gap: 0.5rem;" id="color-palette">
+                     <button class="color-btn" style="background:#000; width:30px; height:30px; border-radius:50%; border:2px solid #000; cursor:pointer;" data-color="#000000"></button>
+                     <button class="color-btn" style="background:#ff3b30; width:30px; height:30px; border-radius:50%; border:2px solid transparent; cursor:pointer;" data-color="#ff3b30"></button>
+                     <button class="color-btn" style="background:#007aff; width:30px; height:30px; border-radius:50%; border:2px solid transparent; cursor:pointer;" data-color="#007aff"></button>
+                     <button class="color-btn" style="background:#34c759; width:30px; height:30px; border-radius:50%; border:2px solid transparent; cursor:pointer;" data-color="#34c759"></button>
+                     <button class="color-btn" style="background:#f0c05a; width:30px; height:30px; border-radius:50%; border:2px solid transparent; cursor:pointer;" data-color="#f0c05a"></button>
+                 </div>
+                 <button id="clear-canvas-btn" style="padding: 4px 8px; border-radius: 4px; background:#f0f0f0; border:1px solid #ccc; font-size:0.8rem; cursor:pointer;">🗑️ 清空</button>
+             </div>
+
+             <!-- 畫家設定答案區 -->
+             <div id="drawer-input-zone" class="form-group hidden">
+                 <label>這幅畫的答案是？(限20字內)</label>
+                 <input type="text" id="game-answer-input" placeholder="例如：紅蘋果" maxlength="20" autocomplete="off">
+                 <button id="submit-drawing-btn" class="primary-btn full-width" style="margin-top:0.5rem; background:#ffcc00; color:#b28000;">發送給伴侶猜</button>
+             </div>
+
+             <!-- 猜家作答區 -->
+             <div id="guesser-input-zone" class="form-group hidden">
+                 <label>你的猜測是？</label>
+                 <input type="text" id="game-guess-input" placeholder="猜猜看畫的是什麼" autocomplete="off">
+                 <button id="submit-guess-btn" class="primary-btn full-width" style="margin-top:0.5rem;">驗證答案！</button>
+             </div>
+         </div>
+    </div>
+    
     <script>
         // 註冊 Service Worker (PWA offline access)
         if ('serviceWorker' in navigator && window.location.protocol !== 'file:') {
