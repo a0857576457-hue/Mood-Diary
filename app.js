@@ -577,37 +577,37 @@ function renderCalendar() {
         
         // 伴侶當日資料
         const dailyPartner = partnerEntries.filter(e => e.date === dateStr && !e.isMegaphone);
+        const partnerLastMoodEntry = dailyPartner.find(e => e.moodEmoji);
+        const partnerMood = partnerLastMoodEntry ? partnerLastMoodEntry.moodEmoji : '';
+        const partnerHasMsg = partnerLastMoodEntry && partnerLastMoodEntry.moodMessage ? '<span style="font-size:0.8rem; vertical-align: top; margin-left:1px;">💬</span>' : '';
         
         let cellHTML = `<div class="date">${day}</div>`;
-        
-        // 檢查是否有心情小語
-        const hasMsg = dailyMy.some(e => e.moodMessage) || dailyPartner.some(e => e.moodMessage);
-        if (hasMsg) {
-            cellHTML += `<div style="position:absolute; top:4px; right:4px; font-size:0.8rem" title="有包含心情小語的紀錄">💬</div>`;
-        }
-        
         const dotsHTML = [];
         
-        // 個人點點
+        // 個人消費點點
         dailyMy.forEach(e => {
             if (e.amount > 0) {
-                dotsHTML.push(`<div class="small-dot" style="background-color: ${categoryColors[e.category] || '#aaa'}"></div>`);
-            } else if (e.moodEmoji) {
-                dotsHTML.push(`<div class="small-dot" style="background-color: var(--primary-color)"></div>`);
+                dotsHTML.push(`<div class="small-dot" style="background-color: ${categoryColors[e.category] || '#aaa'};"></div>`);
             }
         });
 
-        // 伴侶點點
+        // 伴侶消費點點
         dailyPartner.forEach(e => {
             if (e.amount > 0) {
                 dotsHTML.push(`<div class="small-dot" style="background-color: ${categoryColors[e.category] || '#aaa'}; border: 1px solid #d63384;"></div>`);
-            } else if (e.moodEmoji) {
-                dotsHTML.push(`<div class="small-dot" style="background-color: #d63384"></div>`);
             }
         });
         
         if (dotsHTML.length > 0) {
-            cellHTML += `<div class="dots-container" style="justify-content:center; align-content:flex-start;">${dotsHTML.slice(0, 10).join('')}</div>`;
+            cellHTML += `<div class="dots-container" style="margin-top:2px; flex-wrap:wrap; padding: 0 2px;">${dotsHTML.slice(0, 8).join('')}</div>`;
+        }
+        
+        // 心情顯示區塊 (右下角放自己，左下角放伴侶)
+        if (myMood || partnerMood) {
+            cellHTML += `<div style="display:flex; justify-content:space-between; margin-top:auto; font-size:1.3rem; padding: 0 2px;">
+                <span title="伴侶心情">${partnerMood}${partnerHasMsg}</span>
+                <span title="我的心情">${myMood}${myHasMsg}</span>
+            </div>`;
         }
         
         cell.innerHTML = cellHTML;
