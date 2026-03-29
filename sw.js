@@ -1,4 +1,4 @@
-const CACHE_NAME = 'expense-tracker-v1';
+const CACHE_NAME = 'mood-diary-v2';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -33,17 +33,20 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// 攔截網路請求以提供離線支援
+// 攔截網路請求：改成 Network First (先抓網路，失敗才拿快取)
 self.addEventListener('fetch', (event) => {
   event.respondWith(
-    caches.match(event.request)
-      .then((response) => {
-        // 如果快取裡有，回傳快取
-        if (response) {
-          return response;
-        }
-        // 否則透過網路請求
-        return fetch(event.request);
+    fetch(event.request)
+      .then((networkResponse) => {
+        // 網路成功：同時把新的檔案存進快取
+        return caches.open(CACHE_NAME).then((cache) => {
+          cache.put(event.request, networkResponse.clone());
+          return networkResponse;
+        });
+      })
+      .catch(() => {
+        // 網路失敗：回傳舊快取 (離線模式)
+        return caches.match(event.request);
       })
   );
 });
