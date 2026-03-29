@@ -119,19 +119,14 @@
                 
                 <div class="divider" style="margin: 1.5rem 0; background:rgba(209,172,165,0.3);"></div>
 
-                <div class="form-group">
-                    <label>我要紀錄</label>
-                    <div class="category-selector" style="grid-template-columns: 1fr 1fr;">
-                        <label class="radio-label">
-                            <input type="radio" name="expenseType" value="expense" checked> <span>💸 支出</span>
-                        </label>
-                        <label class="radio-label">
-                            <input type="radio" name="expenseType" value="income"> <span>💰 收入</span>
-                        </label>
-                    </div>
+                <div class="form-group" style="margin-top: 1rem;">
+                    <label style="display:flex; align-items:center; cursor:pointer;" onclick="document.getElementById('expenseRadio').click()">
+                        <input type="radio" name="expenseType" value="expense" id="expenseRadio" checked style="width:20px;height:20px;accent-color:var(--primary-color);"> 
+                        <span style="font-size:1.1rem; font-weight:700; margin-left:8px; line-height: 20px;">💸 支出選項</span>
+                    </label>
                 </div>
 
-                <div class="form-group" id="expense-category-group">
+                <div class="form-group" id="expense-category-group" style="margin-left:28px;">
                     <label>消費類別 (若無消費可不填這段，對方看不到紀錄)</label>
                     <div class="category-selector">
                         <label class="radio-label">
@@ -149,7 +144,16 @@
                     </div>
                 </div>
                 
-                <div class="form-group hidden" id="income-category-group">
+                <div class="divider" style="margin: 1.5rem 0; background:rgba(209,172,165,0.3);"></div>
+                
+                <div class="form-group">
+                    <label style="display:flex; align-items:center; cursor:pointer;" onclick="document.getElementById('incomeRadio').click()">
+                        <input type="radio" name="expenseType" value="income" id="incomeRadio" style="width:20px;height:20px;accent-color:var(--primary-color);"> 
+                        <span style="font-size:1.1rem; font-weight:700; margin-left:8px; line-height: 20px;">💰 收入選項</span>
+                    </label>
+                </div>
+                
+                <div class="form-group hidden" id="income-category-group" style="margin-left:28px;">
                     <label>收入來源 (此筆紀錄不會與伴侶分享)</label>
                     <div class="category-selector" style="grid-template-columns: 1fr 1fr;">
                         <label class="radio-label">
