@@ -287,11 +287,20 @@ function setupRealtimeSync() {
             partnerEntries = [];
             snapshot.forEach(doc => {
                 const data = doc.data();
+                
+                // 私密心情過濾：如果對方選擇的是錢袋 💰，則將該心情與小語抹除不顯示
+                let safeMoodEmoji = data.moodEmoji;
+                let safeMoodMessage = data.moodMessage;
+                if (safeMoodEmoji === '💰') {
+                    safeMoodEmoji = null;
+                    safeMoodMessage = null;
+                }
+                
                 partnerEntries.push({ 
                     id: doc.id, 
                     date: data.date, 
-                    moodEmoji: data.moodEmoji, 
-                    moodMessage: data.moodMessage, 
+                    moodEmoji: safeMoodEmoji, 
+                    moodMessage: safeMoodMessage, 
                     timestamp: data.timestamp,
                     isMegaphone: data.isMegaphone,
                     megaphoneText: data.megaphoneText
