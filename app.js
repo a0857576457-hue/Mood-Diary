@@ -256,7 +256,9 @@ function setupRealtimeSync() {
                     date: data.date, 
                     moodEmoji: data.moodEmoji, 
                     moodMessage: data.moodMessage, 
-                    timestamp: data.timestamp
+                    timestamp: data.timestamp,
+                    isMegaphone: data.isMegaphone,
+                    megaphoneText: data.megaphoneText
                 });
             });
             updateView();
