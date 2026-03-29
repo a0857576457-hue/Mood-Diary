@@ -605,22 +605,13 @@ function renderCalendar() {
         let cellHTML = `<div class="date">${day}</div>`;
         const dotsHTML = [];
         
-        // 個人消費點點
-        dailyMy.forEach(e => {
-            if (e.amount > 0) {
-                dotsHTML.push(`<div class="small-dot" style="background-color: ${categoryColors[e.category] || '#aaa'};"></div>`);
-            }
-        });
+        // 計算個人與伴侶消費筆數
+        const myExpenseCount = dailyMy.filter(e => e.amount > 0).length;
+        const partnerExpenseCount = dailyPartner.filter(e => e.amount > 0).length;
+        const totalExpenseCount = myExpenseCount + partnerExpenseCount;
 
-        // 伴侶消費點點
-        dailyPartner.forEach(e => {
-            if (e.amount > 0) {
-                dotsHTML.push(`<div class="small-dot" style="background-color: ${categoryColors[e.category] || '#aaa'}; border: 1px solid #d63384;"></div>`);
-            }
-        });
-        
-        if (dotsHTML.length > 0) {
-            cellHTML += `<div class="dots-container" style="margin-top:2px; flex-wrap:wrap; padding: 0 2px;">${dotsHTML.slice(0, 8).join('')}</div>`;
+        if (totalExpenseCount > 0) {
+            cellHTML += `<div style="margin-top:2px; text-align:center; padding: 0 4px; font-size: 0.8rem; color: var(--text-secondary); font-weight: 600; background: rgba(0,0,0,0.04); border-radius: 4px; display: inline-block;">📝 ${totalExpenseCount} 筆</div>`;
         }
         
         // 心情顯示區塊 (右下角放自己，左下角放伴侶)
@@ -796,6 +787,11 @@ function openModal(defaultDateStr) {
     expenseDateInput.value = defaultDateStr;
     renderDailyRecords(defaultDateStr);
     expenseModal.classList.remove('hidden');
+    
+    // 每次點開輸入視窗，一律將捲軸回到最上方
+    const modalContent = expenseModal.querySelector('.modal');
+    if(modalContent) modalContent.scrollTop = 0;
+    
     // 故意增加一筆歷史紀錄，用來攔截未來的「返回鍵」
     history.pushState({ modal: 'expense' }, '', '#expense');
 }
@@ -936,7 +932,7 @@ function renderDailyRecords(dateStr) {
                         <div class="record-meta">
                             <div style="margin-bottom:2px;"><span style="font-size:0.85rem; color:var(--text-secondary); margin-right:6px; font-weight:500;">${timeStr}</span>
                             ${exp.amount > 0 ? `<span class="record-cat" style="color:${categoryColors[exp.category] || '#999'}; font-size:1.15rem; font-weight:600;">${exp.category}</span>` : '<span class="record-cat" style="font-size:1.15rem; font-weight:600;">心情</span>'}</div>
-                            ${exp.moodMessage ? `<div class="record-note" style="color:var(--text-secondary); font-size:1.2rem; margin-top:2px; font-weight:500;">「${exp.moodMessage}」</div>` : ''}
+                            ${exp.moodMessage ? `<div class="record-note" style="color:#d63384; font-size:1.2rem; margin-top:2px; font-weight:600;">「${exp.moodMessage}」</div>` : ''}
                         </div>
                     </div>
                     <div style="display:flex; align-items:center; gap:0.5rem; justify-content:flex-end;">
