@@ -93,6 +93,7 @@ onAuthStateChanged(auth, async (user) => {
         accountInfo.innerHTML = `<div>我：${user.email}</div><div>伴侶：載入中...</div>`;
         
         await fetchUserProfile(); // 拉取伴侶設定
+        updateView(); // 先直接強制畫初版月曆，避免等待延遲
         setupRealtimeSync(); // 開始監聽資料庫
     } else {
         currentUser = null;
@@ -365,7 +366,6 @@ async function handleAddExpense(e) {
     
     const amountVal = document.getElementById('expense-amount').value;
     const amount = amountVal ? parseFloat(amountVal) : 0;
-    const note = document.getElementById('expense-note').value.trim();
     
     const newEntry = {
         uid: currentUser.uid,
@@ -375,17 +375,18 @@ async function handleAddExpense(e) {
         moodMessage,
         category,
         amount,
-        note,
         timestamp: Date.now()
     };
     
     try {
         await addDoc(collection(db, 'entries'), newEntry);
+        // 清空表單
         document.getElementById('expense-amount').value = '';
-        document.getElementById('expense-note').value = '';
         document.getElementById('mood-message').value = '';
+        // 成功後立即刷新詳細紀錄，使用者才會感覺有反應
+        renderDailyRecords(date);
     } catch(err) {
-        alert("儲存失敗");
+        alert("儲存失敗: " + err.message);
     } finally {
         document.getElementById('submit-record-btn').disabled = false;
     }
@@ -424,7 +425,6 @@ function renderDailyRecords(dateStr) {
                     <div style="font-size:1.2rem; min-width: 25px;">${exp.moodEmoji || ''}</div>
                     <div class="record-meta">
                         ${exp.amount > 0 ? `<span class="record-cat" style="color:${categoryColors[exp.category]}">${exp.category}</span>` : '<span class="record-cat">心情</span>'}
-                        ${exp.note ? `<span class="record-note">備註：${exp.note}</span>` : ''}
                         ${exp.moodMessage ? `<span class="record-note" style="color:var(--primary-color)">對話：${exp.moodMessage}</span>` : ''}
                     </div>
                 </div>
