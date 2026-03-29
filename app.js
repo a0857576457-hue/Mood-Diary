@@ -128,8 +128,12 @@ logoutBtn.addEventListener('click', () => {
 partnerSettingBtn.addEventListener('click', () => {
     partnerEmailInput.value = profileData.partnerEmail || '';
     partnerSetupModal.classList.remove('hidden');
+    history.pushState({ modal: 'partner' }, '', '#partner');
 });
-closePartnerBtn.addEventListener('click', () => partnerSetupModal.classList.add('hidden'));
+closePartnerBtn.addEventListener('click', () => {
+    partnerSetupModal.classList.add('hidden');
+    if (location.hash === '#partner') history.back();
+});
 
 // 儲存伴侶 Email
 savePartnerBtn.addEventListener('click', async () => {
@@ -140,6 +144,7 @@ savePartnerBtn.addEventListener('click', async () => {
         profileData.partnerEmail = email;
         accountInfo.innerHTML = `我：${currentUser.email}<br/>伴侶：${email || '尚未綁定'}`;
         partnerSetupModal.classList.add('hidden');
+        if (location.hash === '#partner') history.back();
         
         // 重新拉取伴侶資料
         setupRealtimeSync();
@@ -206,6 +211,17 @@ function setupRealtimeSync() {
 // === 畫面更新邏輯 ===
 document.addEventListener('DOMContentLoaded', () => {
     setupEventListeners();
+    
+    // 攔截手機返回鍵 (PopState)
+    window.addEventListener('popstate', (e) => {
+        // 如果表單是開著的 (沒隱藏)，那就關掉它，不要離開 App
+        if (!expenseModal.classList.contains('hidden')) {
+            expenseModal.classList.add('hidden');
+        }
+        if (!partnerSetupModal.classList.contains('hidden')) {
+            partnerSetupModal.classList.add('hidden');
+        }
+    });
 });
 
 function setupEventListeners() {
@@ -401,10 +417,18 @@ function openModal(defaultDateStr) {
     expenseDateInput.value = defaultDateStr;
     renderDailyRecords(defaultDateStr);
     expenseModal.classList.remove('hidden');
+    // 故意增加一筆歷史紀錄，用來攔截未來的「返回鍵」
+    history.pushState({ modal: 'expense' }, '', '#expense');
 }
 
 function closeModal() {
-    expenseModal.classList.add('hidden');
+    if (!expenseModal.classList.contains('hidden')) {
+        expenseModal.classList.add('hidden');
+        // 自動倒回一步歷史，避免下次按返回要按兩次
+        if (location.hash === '#expense') {
+            history.back();
+        }
+    }
 }
 
 // 掛載全域讓 onClick 可以呼叫
