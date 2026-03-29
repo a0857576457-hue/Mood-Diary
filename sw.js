@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mood-diary-v3';
+const CACHE_NAME = 'mood-diary-v4';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',

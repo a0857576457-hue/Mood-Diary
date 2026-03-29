@@ -1113,6 +1113,11 @@ function setupGameSync() {
             checkGameTimeout(gameDocRef);
             updateGameUI();
         }
+    }, (error) => {
+        console.error('onSnapshot Error:', error);
+        alert('無法連線到遊戲資料庫，請檢查您的 Firestore 權限設定 (Error: ' + error.message + ')');
+        const gameStatusText = document.getElementById('game-status-text');
+        if (gameStatusText) gameStatusText.textContent = '連線失敗或無權限';
     });
     
     if (gameTimerInterval) clearInterval(gameTimerInterval);
