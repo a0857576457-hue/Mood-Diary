@@ -324,10 +324,14 @@ window.showWhisperNotification = function() {
 let myUnsubscribe = null;
 let partnerUnsubscribe = null;
 let lastSeenWhisperText = null;
+let isPartnerFirstLoad = true;
 
 function setupRealtimeSync() {
     if(myUnsubscribe) myUnsubscribe();
     if(partnerUnsubscribe) partnerUnsubscribe();
+    
+    isPartnerFirstLoad = true;
+    lastSeenWhisperText = null;
     
     // 監聽我自己的所有紀錄
     const myQ = query(collection(db, 'entries'), where('uid', '==', currentUser.uid));
@@ -370,10 +374,14 @@ function setupRealtimeSync() {
             const pMega = partnerEntries.find(e => e.isMegaphone);
             const currentWhisper = pMega && pMega.megaphoneText ? pMega.megaphoneText : null;
             
-            if (currentWhisper !== lastSeenWhisperText) {
-                // 如果原來不是 null (代表不是重整剛載入的瞬間)，且有新訊息，且用戶開啟了通知
-                if (lastSeenWhisperText !== null && currentWhisper && profileData.enableNotifications) {
-                    showWhisperNotification();
+            if (isPartnerFirstLoad) {
+                // 初次載入，只同步狀態，不播通知
+                lastSeenWhisperText = currentWhisper;
+                isPartnerFirstLoad = false;
+            } else if (currentWhisper !== lastSeenWhisperText) {
+                // 有被更動過狀態，且是新訊息 (非清空狀態)，且用戶開啟了通知
+                if (currentWhisper && profileData.enableNotifications) {
+                    window.showWhisperNotification();
                 }
                 lastSeenWhisperText = currentWhisper;
             }
