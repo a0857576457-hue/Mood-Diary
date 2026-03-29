@@ -579,6 +579,13 @@ function renderCalendar() {
         const dailyPartner = partnerEntries.filter(e => e.date === dateStr && !e.isMegaphone);
         
         let cellHTML = `<div class="date">${day}</div>`;
+        
+        // 檢查是否有心情小語
+        const hasMsg = dailyMy.some(e => e.moodMessage) || dailyPartner.some(e => e.moodMessage);
+        if (hasMsg) {
+            cellHTML += `<div style="position:absolute; top:4px; right:4px; font-size:0.8rem" title="有包含心情小語的紀錄">💬</div>`;
+        }
+        
         const dotsHTML = [];
         
         // 個人點點

@@ -238,6 +238,7 @@ body {
     transition: background 0.2s, transform 0.2s;
     cursor: pointer;
     min-height: 100px;
+    position: relative;
 }
 
 .calendar-cell:hover {
