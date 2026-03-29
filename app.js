@@ -563,14 +563,16 @@ function renderSummary() {
     sortedCategories.forEach(([category, amount]) => {
         const item = document.createElement('div');
         item.className = 'category-item';
-        const percentage = Math.round((amount / total) * 100) || 0;
+        const percentage = Math.round((amount / totalExp) * 100) || 0;
         item.innerHTML = `
             <div class="cat-label-container">
-                <div class="cat-dot" style="background-color: ${categoryColors[category]}"></div>
+                <div class="cat-dot" style="background-color: ${categoryColors[category] || 'var(--cat-other)'}"></div>
                 <span>${category} <span style="font-size:0.8rem; color:var(--text-secondary); margin-left:4px">${percentage}%</span></span>
             </div>
             <div class="cat-amount">$${amount.toLocaleString()}</div>
         `;
+        item.style.padding = '0.6rem 0.8rem';
+        item.style.marginBottom = '0.5rem';
         categoryBreakdown.appendChild(item);
     });
 }

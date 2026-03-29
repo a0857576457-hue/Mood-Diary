@@ -69,11 +69,13 @@
                 </div>
             </div>
 
-            <!-- 圓餅圖將用 JS 生成插入於此 -->
-            <div id="expense-pie-chart" class="pie-chart" style="display:none; width:140px; height:140px; border-radius:50%; margin: 1.5rem auto 0.5rem; box-shadow: 0 4px 10px rgba(0,0,0,0.1); transition: background 0.5s ease;"></div>
-
-            <div class="category-breakdown" id="category-breakdown">
-                <!-- 類別統計將動態插入這裡 -->
+            <div style="display: flex; gap: 1rem; align-items: center; justify-content: space-between; margin: 1rem 0; overflow: hidden;">
+                <!-- 圓餅圖將用 JS 生成插入於此 -->
+                <div id="expense-pie-chart" class="pie-chart" style="display:none; width:110px; height:110px; min-width:110px; border-radius:50%; box-shadow: 0 4px 10px rgba(0,0,0,0.1); transition: background 0.5s ease;"></div>
+    
+                <div class="category-breakdown" id="category-breakdown" style="flex: 1; min-width:150px;">
+                    <!-- 類別統計將動態插入這裡 -->
+                </div>
             </div>
 
             <button id="add-expense-main-btn" class="primary-btn">
