@@ -1108,7 +1108,10 @@ function setupGameSync() {
                 deadline: Date.now() + 12 * 60 * 60 * 1000,
                 lastResult: '這是你們的第一局！'
             };
-            setDoc(gameDocRef, currentGameData);
+            setDoc(gameDocRef, currentGameData).catch(err => {
+                console.error("建立遊戲房失敗:", err);
+            });
+            updateGameUI();
         } else {
             currentGameData = snap.data();
             checkGameTimeout(gameDocRef);
