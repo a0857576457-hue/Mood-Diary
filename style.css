@@ -144,6 +144,14 @@ body {
     transition: transform 0.2s, background 0.2s;
 }
 
+/* 顯示與隱藏全域標籤 */
+.app-container.hidden {
+    display: none !important;
+}
+#login-content.hidden, #loading-spinner.hidden {
+    display: none !important;
+}
+
 .category-item:hover {
     transform: translateY(-2px);
     background: rgba(255,255,255, 0.8);
@@ -199,11 +207,16 @@ body {
 .calendar-header .weekdays {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
+    gap: 1px; /* 這裡必須加上和 grid 一樣的 gap，欄位才會對齊 */
+    padding: 0;
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+}
+
+.calendar-header .weekdays span {
     text-align: right;
-    padding: 1rem 0.5rem;
+    padding: 1rem 0.8rem; /* 和 cell 的 0.8rem 保持一致 */
     font-weight: 500;
     color: var(--text-secondary);
-    border-bottom: 1px solid rgba(0,0,0,0.05);
 }
 
 .calendar-grid {
@@ -258,24 +271,32 @@ body {
 .date {
     align-self: flex-end;
     font-weight: 500;
-    margin-bottom: auto;
+    margin-bottom: auto; /* 將日期標籤推上去，確保下方有足夠空間 */
     color: var(--text-primary);
+}
+
+.calendar-cell {
+    /* 原有設定不用變動，只是將裡面變成 flex column，讓心情圖示放到底部 */
 }
 
 /* 日期儲存格中的金額標籤 */
 .daily-total-badge {
-    align-self: flex-start;
+    align-self: center;
     background: rgba(255, 255, 255, 0.8);
-    padding: 0.3rem 0.6rem;
-    border-radius: 20px;
+    padding: 0.3rem 0;
+    border-radius: 12px;
     font-size: 0.85rem;
     font-weight: 600;
     color: var(--primary-color);
     box-shadow: 0 2px 5px rgba(0,0,0,0.05);
     margin-top: 5px;
     width: 100%;
-    text-align: right;
+    text-align: center;
     animation: fadeIn 0.3s ease;
+    /* 新增：文字過長時自動縮減，避免撐爆格子 */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .daily-total-badge.empty {
@@ -408,6 +429,11 @@ body {
     box-shadow: 0 2px 8px rgba(209, 172, 165, 0.2);
 }
 
+.mood-label {
+    flex-direction: column;
+    padding: 1rem 0.5rem;
+}
+
 /* Modal 中的紀錄列表 */
 .divider {
     height: 1px;
@@ -483,11 +509,44 @@ body {
 }
 
 @media (max-width: 900px) {
+    body {
+        padding: 1rem;
+    }
     .app-container {
         flex-direction: column;
         height: auto;
     }
     .summary-panel {
         max-width: none;
+    }
+}
+
+/* 針對狹長型手機 (如 S24 Ultra) 進行月曆壓縮優化 */
+@media (max-width: 500px) {
+    .glass-panel {
+        padding: 1rem;
+    }
+    
+    .calendar-cell {
+        padding: 0.2rem;
+        min-height: 70px;
+    }
+    
+    .calendar-header .weekdays span {
+        padding: 0.5rem 0.2rem;
+        font-size: 0.8rem;
+    }
+    
+    .daily-total-badge {
+        font-size: 0.7rem;
+        padding: 0.2rem 0;
+        background: transparent;
+        box-shadow: none;
+    }
+    
+    .calendar-cell.today .date {
+        width: 24px;
+        height: 24px;
+        font-size: 0.9rem;
     }
 }

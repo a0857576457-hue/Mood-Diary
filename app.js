@@ -1,14 +1,61 @@
-// 初始化資料
-let expenses = JSON.parse(localStorage.getItem('expenses')) || [];
-let currentViewingDate = new Date();
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
+import { getFirestore, collection, addDoc, getDocs, onSnapshot, query, where, deleteDoc, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
 
-// DOM 元素引用
+// === Firebase Config (從您的設定複製過來) ===
+const firebaseConfig = {
+  apiKey: "AIzaSyDd_6kuDOF1JQTRyeb0vVC8ltbzCxa5JAM",
+  authDomain: "mood-diary-8c142.firebaseapp.com",
+  projectId: "mood-diary-8c142",
+  storageBucket: "mood-diary-8c142.firebasestorage.app",
+  messagingSenderId: "97269973107",
+  appId: "1:97269973107:web:d356c585a245bbf2cc6a06",
+  measurementId: "G-6YB8KDE7CL"
+};
+
+// 初始化 Firebase
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+// ====== 🔒 私人防護設定（白名單） ======
+// 請將您與另一半的 Google Email 填入下方
+// 如果有人不小心連到這個網頁登入，只要不在名單內就會被自動踢出！
+const ALLOWED_EMAILS = [
+    "a0857576457@gmail.com",       // 改成您的 Email
+    "uniamber384@gmail.com"     // 改成伴侶的 Email
+];
+
+// === 全域狀態變數 ===
+let currentUser = null;
+let profileData = { partnerEmail: "" }; // 存放伴侶設定
+let myEntries = []; // 我的紀錄 (包含記帳與心情)
+let partnerEntries = []; // 伴侶的紀錄 (只會拉取心情)
+let currentViewingDate = new Date(); // 當前察看的月份年月
+
+// 移除原本 localstorage 的變數
+// DOM
+const loginOverlay = document.getElementById('login-overlay');
+const loginContent = document.getElementById('login-content');
+const loadingSpinner = document.getElementById('loading-spinner');
+const mainApp = document.getElementById('main-app');
+const loginBtn = document.getElementById('login-btn');
+const logoutBtn = document.getElementById('logout-btn');
+
+const accountInfo = document.getElementById('account-info');
+const partnerSettingBtn = document.getElementById('partner-setting-btn');
+const partnerSetupModal = document.getElementById('partner-setup-modal');
+const closePartnerBtn = document.getElementById('close-partner-btn');
+const partnerEmailInput = document.getElementById('partner-email-input');
+const savePartnerBtn = document.getElementById('save-partner-btn');
+
 const calendarGrid = document.getElementById('calendar-grid');
 const currentMonthDisplay = document.getElementById('current-month-display');
 const monthlyTotalAmount = document.getElementById('monthly-total-amount');
 const categoryBreakdown = document.getElementById('category-breakdown');
 const prevMonthBtn = document.getElementById('prev-month-btn');
 const nextMonthBtn = document.getElementById('next-month-btn');
+const shareAppBtn = document.getElementById('share-app-btn');
 
 // Modal 相關
 const expenseModal = document.getElementById('expense-modal');
@@ -18,6 +65,7 @@ const expenseForm = document.getElementById('expense-form');
 const expenseDateInput = document.getElementById('expense-date');
 const dailyRecordsContainer = document.getElementById('daily-records');
 const dailyRecordsList = document.getElementById('daily-records-list');
+const partnerDailyMoodContainer = document.getElementById('partner-daily-mood');
 
 // 類別顏色對應
 const categoryColors = {
@@ -27,26 +75,140 @@ const categoryColors = {
     '其他': 'var(--cat-other)'
 };
 
-// 初始化設定
+// === 驗證狀態監聽器 ===
+onAuthStateChanged(auth, async (user) => {
+    if (user) {
+        // 安全防護：檢查登入的帳號是否有在白名單內
+        const userEmail = user.email.toLowerCase();
+        if (!ALLOWED_EMAILS.includes(userEmail) && ALLOWED_EMAILS[0] !== "your_email@gmail.com") {
+            alert("🔒 抱歉，這是私人的專屬空間，您的帳號無權登入！");
+            signOut(auth);
+            return;
+        }
+
+        currentUser = user;
+        loadingSpinner.classList.add('hidden');
+        loginOverlay.classList.add('hidden');
+        mainApp.classList.remove('hidden');
+        accountInfo.innerHTML = `<div>我：${user.email}</div><div>伴侶：載入中...</div>`;
+        
+        await fetchUserProfile(); // 拉取伴侶設定
+        setupRealtimeSync(); // 開始監聽資料庫
+    } else {
+        currentUser = null;
+        loginOverlay.classList.remove('hidden');
+        mainApp.classList.add('hidden');
+        loginContent.classList.remove('hidden');
+        loadingSpinner.classList.add('hidden');
+        
+        // 註銷監聽器 (稍後優化)
+        myEntries = [];
+        partnerEntries = [];
+    }
+});
+
+// Google 登入
+loginBtn.addEventListener('click', () => {
+    const provider = new GoogleAuthProvider();
+    signInWithPopup(auth, provider).catch((error) => {
+        alert("登入失敗: " + error.message);
+    });
+});
+
+// 登出
+logoutBtn.addEventListener('click', () => {
+    signOut(auth);
+});
+
+// 伴侶設定 Modal
+partnerSettingBtn.addEventListener('click', () => {
+    partnerEmailInput.value = profileData.partnerEmail || '';
+    partnerSetupModal.classList.remove('hidden');
+});
+closePartnerBtn.addEventListener('click', () => partnerSetupModal.classList.add('hidden'));
+
+// 儲存伴侶 Email
+savePartnerBtn.addEventListener('click', async () => {
+    const email = partnerEmailInput.value.trim().toLowerCase();
+    const userRef = doc(db, 'users', currentUser.uid);
+    try {
+        await setDoc(userRef, { partnerEmail: email }, { merge: true });
+        profileData.partnerEmail = email;
+        accountInfo.innerHTML = `我：${currentUser.email}<br/>伴侶：${email || '尚未綁定'}`;
+        partnerSetupModal.classList.add('hidden');
+        
+        // 重新拉取伴侶資料
+        setupRealtimeSync();
+    } catch(e) {
+        alert("儲存失敗");
+    }
+});
+
+// 拉取個人設定
+async function fetchUserProfile() {
+    const userRef = doc(db, 'users', currentUser.uid);
+    const snap = await getDoc(userRef);
+    if(snap.exists()){
+        profileData = snap.data();
+    }
+    accountInfo.innerHTML = `<div>我：${currentUser.email}</div><div>伴侶：${profileData.partnerEmail || '未綁定'}</div>`;
+}
+
+// 設定 Firestore 即時監聽
+let myUnsubscribe = null;
+let partnerUnsubscribe = null;
+
+function setupRealtimeSync() {
+    if(myUnsubscribe) myUnsubscribe();
+    if(partnerUnsubscribe) partnerUnsubscribe();
+    
+    // 監聽我自己的所有紀錄
+    const myQ = query(collection(db, 'entries'), where('uid', '==', currentUser.uid));
+    myUnsubscribe = onSnapshot(myQ, (snapshot) => {
+        myEntries = [];
+        snapshot.forEach(doc => {
+            myEntries.push({ id: doc.id, ...doc.data() });
+        });
+        updateView();
+    });
+    
+    // 如果有伴侶，監聽伴侶的心情紀錄
+    if(profileData.partnerEmail) {
+        const pQ = query(collection(db, 'entries'), where('userEmail', '==', profileData.partnerEmail));
+        partnerUnsubscribe = onSnapshot(pQ, (snapshot) => {
+            partnerEntries = [];
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                // ※ 重要：基於隱私，我們只在前端暫存對方的心情，丟棄金額
+                // (更嚴謹的作法要用 Firebase Security Rules 或 分開 Collection 限制，此處示範簡化)
+                partnerEntries.push({ 
+                    id: doc.id, 
+                    date: data.date, 
+                    moodEmoji: data.moodEmoji, 
+                    moodMessage: data.moodMessage, 
+                    timestamp: data.timestamp
+                });
+            });
+            updateView();
+        });
+    }
+}
+
+// === 畫面更新邏輯 ===
 document.addEventListener('DOMContentLoaded', () => {
-    updateView();
     setupEventListeners();
 });
 
-// 設定事件監聽器
 function setupEventListeners() {
-    // 切換月份
     prevMonthBtn.addEventListener('click', () => {
         currentViewingDate.setMonth(currentViewingDate.getMonth() - 1);
         updateView();
     });
-    
     nextMonthBtn.addEventListener('click', () => {
         currentViewingDate.setMonth(currentViewingDate.getMonth() + 1);
         updateView();
     });
 
-    // 打開新增/檢視 Modal
     addExpenseMainBtn.addEventListener('click', () => {
         // 預設填入今天日期
         const today = new Date();
@@ -57,35 +219,39 @@ function setupEventListeners() {
     });
 
     closeModalBtn.addEventListener('click', closeModal);
-    
-    // 點擊背景關閉 Modal
-    expenseModal.addEventListener('click', (e) => {
-        if (e.target === expenseModal) {
-            closeModal();
-        }
-    });
-
     expenseForm.addEventListener('submit', handleAddExpense);
+    
+    if (shareAppBtn) {
+        shareAppBtn.addEventListener('click', async () => {
+            if (navigator.share) {
+                navigator.share({
+                    title: '心情日記',
+                    text: '一起來用心網站寫日記跟記帳吧！',
+                    url: window.location.href,
+                }).catch(e=>console.log(e));
+            } else {
+                alert('您的裝置不支援分享功能');
+            }
+        });
+    }
 }
 
-// 根據 currentViewingDate 更新全部畫面
 function updateView() {
     renderCalendar();
     renderSummary();
     currentMonthDisplay.textContent = `${currentViewingDate.getFullYear()} 年 ${currentViewingDate.getMonth() + 1} 月`;
 }
 
-// 渲染月曆
 function renderCalendar() {
+    if(!calendarGrid) return;
     calendarGrid.innerHTML = '';
     
     const year = currentViewingDate.getFullYear();
     const month = currentViewingDate.getMonth();
     
-    const firstDay = new Date(year, month, 1).getDay(); // 本月第一天是星期幾 0-6
-    const daysInMonth = new Date(year, month + 1, 0).getDate(); // 本月有幾天
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
     
-    // 填補前面的空白格子
     for (let i = 0; i < firstDay; i++) {
         const emptyCell = document.createElement('div');
         emptyCell.className = 'calendar-cell empty';
@@ -94,100 +260,81 @@ function renderCalendar() {
     
     const today = new Date();
     
-    // 渲染日期格子
     for (let day = 1; day <= daysInMonth; day++) {
         const cell = document.createElement('div');
         cell.className = 'calendar-cell';
         
-        // 檢查是否為今天
         if (today.getFullYear() === year && today.getMonth() === month && today.getDate() === day) {
             cell.classList.add('today');
         }
         
-        // 格式化日期 YYYY-MM-DD
         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
         
-        // 找尋當日所有花費
-        const dailyExpenses = expenses.filter(exp => exp.date === dateStr);
-        const dailyTotal = dailyExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+        // 個人當日資料
+        const dailyMy = myEntries.filter(e => e.date === dateStr);
+        const dailyMyTotal = dailyMy.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+        const myMood = dailyMy.find(e => e.moodEmoji)?.moodEmoji; // 取當天最後一個有填心情的
         
+        // 伴侶當日資料
+        const dailyPartner = partnerEntries.filter(e => e.date === dateStr);
+        const partnerMood = dailyPartner.find(e => e.moodEmoji)?.moodEmoji;
+
         let cellHTML = `<div class="date">${day}</div>`;
         
-        if (dailyTotal > 0) {
-            // 金額標籤
-            cellHTML += `<div class="daily-total-badge">$${dailyTotal.toLocaleString()}</div>`;
-            
-            // 下方多筆紀錄小圓點指示
-            if (dailyExpenses.length > 0) {
-                cellHTML += `<div class="dots-container">`;
-                // 最多顯示 4 個小圓點，避免超出格子
-                dailyExpenses.slice(0, 4).forEach(exp => {
-                    cellHTML += `<div class="small-dot" style="background-color: ${categoryColors[exp.category] || categoryColors['其他']}"></div>`;
-                });
-                if (dailyExpenses.length > 4) {
-                    cellHTML += `<div class="small-dot" style="background-color: #ccc"></div>`; // 還有更多的提示
-                }
-                cellHTML += `</div>`;
-            }
+        if (dailyMyTotal > 0) {
+            cellHTML += `<div class="daily-total-badge">$${dailyMyTotal.toLocaleString()}</div>`;
+        }
+        
+        // 心情顯示區塊 (右下角放自己，左下角放伴侶)
+        if (myMood || partnerMood) {
+            cellHTML += `<div style="display:flex; justify-content:space-between; margin-top:auto; font-size:1.2rem; padding: 0 2px;">
+                <span title="伴侶心情">${partnerMood || ''}</span>
+                <span title="我的心情">${myMood || ''}</span>
+            </div>`;
         }
         
         cell.innerHTML = cellHTML;
         
-        // 點擊格子打開詳細紀錄及新增表單
         cell.addEventListener('click', () => {
-            openModal(dateStr, dailyExpenses);
+            openModal(dateStr, dailyMy);
         });
         
         calendarGrid.appendChild(cell);
     }
 }
 
-// 渲染側邊總結
 function renderSummary() {
     const year = currentViewingDate.getFullYear();
-    const month = currentViewingDate.getMonth();
-    const mmStr = String(month + 1).padStart(2, '0');
+    const mmStr = String(currentViewingDate.getMonth() + 1).padStart(2, '0');
     
-    // 過濾出這個月的紀錄
-    const monthlyExpenses = expenses.filter(exp => {
-        return exp.date.startsWith(`${year}-${mmStr}`);
-    });
+    const monthlyExpenses = myEntries.filter(exp => exp.date.startsWith(`${year}-${mmStr}`) && exp.amount > 0);
+    const total = monthlyExpenses.reduce((sum, exp) => sum + Number(exp.amount), 0);
     
-    const total = monthlyExpenses.reduce((sum, exp) => sum + exp.amount, 0);
     animateValue(monthlyTotalAmount, parseInt(monthlyTotalAmount.textContent.replace(/,/g, '') || 0), total, 600);
-    // monthlyTotalAmount.textContent = total.toLocaleString();
 
-    // 計算各類別總額
     const categoryTotals = { '飲食': 0, '交通': 0, '娛樂': 0, '其他': 0 };
     monthlyExpenses.forEach(exp => {
         if (categoryTotals[exp.category] !== undefined) {
-            categoryTotals[exp.category] += exp.amount;
+            categoryTotals[exp.category] += Number(exp.amount);
         } else {
-            categoryTotals['其他'] += exp.amount;
+            categoryTotals['其他'] += Number(exp.amount);
         }
     });
 
-    // 渲染類別統計清單
     categoryBreakdown.innerHTML = '';
-    
-    // 將類別轉換為陣列並按金額排序
     const sortedCategories = Object.entries(categoryTotals)
-        .filter(([cat, amt]) => amt > 0)
+        .filter(([, amt]) => amt > 0)
         .sort((a, b) => b[1] - a[1]);
         
     if (sortedCategories.length === 0) {
-        // 如果這個月還沒有花費
-        categoryBreakdown.innerHTML = '<div style="text-align:center;color:var(--text-secondary);margin-top:2rem;font-size:0.9rem;">目前尚無紀錄</br>趕快記下一筆吧！</div>';
+        categoryBreakdown.innerHTML = '<div style="text-align:center;color:var(--text-secondary);margin-top:2rem;font-size:0.9rem;">本月尚無消費紀錄</div>';
         return;
     }
 
     sortedCategories.forEach(([category, amount]) => {
         const item = document.createElement('div');
         item.className = 'category-item';
-        
-        // 算出該類別佔比
         const percentage = Math.round((amount / total) * 100) || 0;
-        
         item.innerHTML = `
             <div class="cat-label-container">
                 <div class="cat-dot" style="background-color: ${categoryColors[category]}"></div>
@@ -199,110 +346,88 @@ function renderSummary() {
     });
 }
 
-// 處理新增花費
-function handleAddExpense(e) {
+// 寫入資料庫
+async function handleAddExpense(e) {
     e.preventDefault();
+    document.getElementById('submit-record-btn').disabled = true;
     
     const date = expenseDateInput.value;
-    const categoryInputs = document.getElementsByName('category');
-    let category = '其他';
-    for (const input of categoryInputs) {
-        if (input.checked) {
-            category = input.value;
-            break;
-        }
-    }
-    const amount = parseFloat(document.getElementById('expense-amount').value);
+    
+    const moodEmojiInput = document.querySelector('input[name="moodEmoji"]:checked');
+    const moodEmoji = moodEmojiInput ? moodEmojiInput.value : '';
+    const moodMessage = document.getElementById('mood-message').value.trim();
+    
+    const categoryInput = document.querySelector('input[name="category"]:checked');
+    const category = categoryInput ? categoryInput.value : '其他';
+    
+    const amountVal = document.getElementById('expense-amount').value;
+    const amount = amountVal ? parseFloat(amountVal) : 0;
     const note = document.getElementById('expense-note').value.trim();
     
-    const targetDateObj = new Date(date);
-    
-    const newExpense = {
-        id: Date.now().toString(),
-        date, // YYYY-MM-DD
+    const newEntry = {
+        uid: currentUser.uid,
+        userEmail: currentUser.email, // 讓伴侶靠 email 撈取
+        date,
+        moodEmoji,
+        moodMessage,
         category,
         amount,
         note,
         timestamp: Date.now()
     };
     
-    expenses.push(newExpense);
-    saveExpenses();
-    
-    // 檢查記帳日期是否在當前顯示的月份，如果不是，自動切換畫面月份
-    if (targetDateObj.getFullYear() !== currentViewingDate.getFullYear() || 
-        targetDateObj.getMonth() !== currentViewingDate.getMonth()) {
-        currentViewingDate = new Date(targetDateObj.getFullYear(), targetDateObj.getMonth(), 1);
+    try {
+        await addDoc(collection(db, 'entries'), newEntry);
+        document.getElementById('expense-amount').value = '';
+        document.getElementById('expense-note').value = '';
+        document.getElementById('mood-message').value = '';
+    } catch(err) {
+        alert("儲存失敗");
+    } finally {
+        document.getElementById('submit-record-btn').disabled = false;
     }
-    
-    updateView();
-    
-    // 如果是從日期格點進來的，我們保持面板開啟並更新底下列表，同時清空表單金額
-    document.getElementById('expense-amount').value = '';
-    document.getElementById('expense-note').value = '';
-    renderDailyRecords(date);
 }
 
-// 刪除花費
-function deleteExpense(id) {
-    expenses = expenses.filter(exp => exp.id !== id);
-    saveExpenses();
-    
-    const dateStr = expenseDateInput.value; // 從表單得知當前打開的是哪單日
-    renderDailyRecords(dateStr); // 更新列表
-    updateView(); // 更新主畫面
-}
-
-// 儲存進 LocalStorage
-function saveExpenses() {
-    localStorage.setItem('expenses', JSON.stringify(expenses));
-}
-
-// Modal 邏輯
-function openModal(defaultDateStr, dailyExpenses = null) {
+function openModal(defaultDateStr) {
     expenseDateInput.value = defaultDateStr;
-    document.getElementById('expense-amount').value = '';
-    document.getElementById('expense-note').value = '';
-    
-    // 重置單選為預設點擊的項目或第一個
-    const categoryInputs = document.getElementsByName('category');
-    categoryInputs[0].checked = true; // 預設飲食
-    
-    // 渲染當日紀錄
     renderDailyRecords(defaultDateStr);
-    
     expenseModal.classList.remove('hidden');
-    setTimeout(() => {
-        document.getElementById('expense-amount').focus();
-    }, 100);
 }
 
 function closeModal() {
     expenseModal.classList.add('hidden');
 }
 
-// 渲染特定日期的所有花費列表於 Modal 中下方
+// 掛載全域讓 onClick 可以呼叫
+window.deleteEntry = async function(id) {
+    if(confirm('確定刪除此紀錄嗎？')) {
+        await deleteDoc(doc(db, 'entries', id));
+    }
+}
+
 function renderDailyRecords(dateStr) {
-    const dailyExpenses = expenses.filter(exp => exp.date === dateStr).sort((a,b) => b.timestamp - a.timestamp);
+    // 渲染自己的紀錄 (包含金額與心情)
+    const dailyMy = myEntries.filter(exp => exp.date === dateStr).sort((a,b) => b.timestamp - a.timestamp);
     
-    if (dailyExpenses.length > 0) {
+    if (dailyMy.length > 0) {
         dailyRecordsContainer.classList.remove('hidden');
         dailyRecordsList.innerHTML = '';
         
-        dailyExpenses.forEach(exp => {
+        dailyMy.forEach(exp => {
             const li = document.createElement('li');
             li.className = 'record-item';
             li.innerHTML = `
                 <div class="record-info">
-                    <div class="cat-dot" style="background-color: ${categoryColors[exp.category]}"></div>
+                    <div style="font-size:1.2rem; min-width: 25px;">${exp.moodEmoji || ''}</div>
                     <div class="record-meta">
-                        <span class="record-cat">${exp.category}</span>
-                        ${exp.note ? `<span class="record-note">${exp.note}</span>` : ''}
+                        ${exp.amount > 0 ? `<span class="record-cat" style="color:${categoryColors[exp.category]}">${exp.category}</span>` : '<span class="record-cat">心情</span>'}
+                        ${exp.note ? `<span class="record-note">備註：${exp.note}</span>` : ''}
+                        ${exp.moodMessage ? `<span class="record-note" style="color:var(--primary-color)">對話：${exp.moodMessage}</span>` : ''}
                     </div>
                 </div>
                 <div style="display:flex; align-items:center;">
-                    <span class="record-amount">$${exp.amount.toLocaleString()}</span>
-                    <button class="record-actions delete-btn" onclick="deleteExpense('${exp.id}')">刪除</button>
+                    ${exp.amount > 0 ? `<span class="record-amount">$${exp.amount.toLocaleString()}</span>` : ''}
+                    <button class="record-actions delete-btn" onclick="deleteEntry('${exp.id}')">刪除</button>
                 </div>
             `;
             dailyRecordsList.appendChild(li);
@@ -310,15 +435,30 @@ function renderDailyRecords(dateStr) {
     } else {
         dailyRecordsContainer.classList.add('hidden');
     }
+
+    // 渲染另一半的「心情留言」
+    partnerDailyMoodContainer.innerHTML = '';
+    const dailyPartner = partnerEntries.filter(exp => exp.date === dateStr && exp.moodEmoji).sort((a,b) => b.timestamp - a.timestamp);
+    if(dailyPartner.length > 0) {
+        let html = `<strong>另一半（${profileData.partnerEmail}）：</strong><br/>`;
+        dailyPartner.forEach(p => {
+            html += `<div style="margin-top:0.5rem">
+                <span style="font-size:1.2rem">${p.moodEmoji}</span> ${p.moodMessage ? `"${p.moodMessage}"` : '（有心情波動但沒留下訊息）'}
+            </div>`;
+        });
+        partnerDailyMoodContainer.innerHTML = html;
+        partnerDailyMoodContainer.style.display = 'block';
+        dailyRecordsContainer.classList.remove('hidden'); // 如果只有伴侶有留言也要顯示容器
+    } else {
+        partnerDailyMoodContainer.style.display = 'none';
+    }
 }
 
-// 數字跳動動畫副程式
 function animateValue(obj, start, end, duration) {
     let startTimestamp = null;
     const step = (timestamp) => {
         if (!startTimestamp) startTimestamp = timestamp;
         const progress = Math.min((timestamp - startTimestamp) / duration, 1);
-        // easeOutQuart
         const easeProgress = 1 - Math.pow(1 - progress, 4);
         obj.innerHTML = Math.floor(easeProgress * (end - start) + start).toLocaleString();
         if (progress < 1) {
