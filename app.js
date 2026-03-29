@@ -70,6 +70,22 @@ function playSuccessSound() {
     } catch(e) {}
 }
 
+function playSound(freq, type, gainVal, durationMs) {
+    try {
+        initAudio();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(gainVal, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + (durationMs / 1000));
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + (durationMs / 1000));
+    } catch(e) {}
+}
+
 // 全域監聽點擊，給予清脆的回饋音效
 document.addEventListener('click', (e) => {
     // 只要是按鈕、標籤、日曆格子就發出短暫音效
