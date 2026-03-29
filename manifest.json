@@ -1,12 +1,26 @@
 {
   "name": "心情日記",
   "short_name": "心情日記",
+  "id": "/?source=pwa",
+  "description": "私密專屬的兩人心情日記與記帳空間",
   "start_url": ".",
   "display": "standalone",
   "background_color": "#F8F5EE",
   "theme_color": "#D1ACA5",
   "orientation": "portrait",
   "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
     {
       "src": "icon-192.svg",
       "sizes": "192x192",
