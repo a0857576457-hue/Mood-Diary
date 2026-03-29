@@ -27,6 +27,8 @@
     box-sizing: border-box;
     margin: 0;
     padding: 0;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
 }
 
 body {
@@ -55,11 +57,11 @@ body {
 /* Glassmorphism 共用類別 */
 .glass-panel {
     background: var(--glass-bg);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     border: 1px solid var(--glass-border);
     border-radius: var(--radius-lg);
-    box-shadow: var(--shadow);
+    box-shadow: 0 4px 15px rgba(139, 131, 120, 0.05); /* 減輕陰影渲染壓力 */
     padding: 2rem;
 }
 
