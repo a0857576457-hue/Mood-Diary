@@ -298,11 +298,15 @@ function renderCalendar() {
         // 個人當日資料
         const dailyMy = myEntries.filter(e => e.date === dateStr);
         const dailyMyTotal = dailyMy.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
-        const myMood = dailyMy.find(e => e.moodEmoji)?.moodEmoji; // 取當天最後一個有填心情的
+        const myLastMoodEntry = dailyMy.find(e => e.moodEmoji);
+        const myMood = myLastMoodEntry ? myLastMoodEntry.moodEmoji : '';
+        const myHasMsg = myLastMoodEntry && myLastMoodEntry.moodMessage ? '<span style="font-size:0.8rem; vertical-align: top;">💬</span>' : '';
         
         // 伴侶當日資料
         const dailyPartner = partnerEntries.filter(e => e.date === dateStr);
-        const partnerMood = dailyPartner.find(e => e.moodEmoji)?.moodEmoji;
+        const partnerLastMoodEntry = dailyPartner.find(e => e.moodEmoji);
+        const partnerMood = partnerLastMoodEntry ? partnerLastMoodEntry.moodEmoji : '';
+        const partnerHasMsg = partnerLastMoodEntry && partnerLastMoodEntry.moodMessage ? '<span style="font-size:0.8rem; vertical-align: top;">💬</span>' : '';
 
         let cellHTML = `<div class="date">${day}</div>`;
         
@@ -313,8 +317,8 @@ function renderCalendar() {
         // 心情顯示區塊 (右下角放自己，左下角放伴侶)
         if (myMood || partnerMood) {
             cellHTML += `<div style="display:flex; justify-content:space-between; margin-top:auto; font-size:1.2rem; padding: 0 2px;">
-                <span title="伴侶心情">${partnerMood || ''}</span>
-                <span title="我的心情">${myMood || ''}</span>
+                <span title="伴侶心情">${partnerMood}${partnerHasMsg}</span>
+                <span title="我的心情">${myMood}${myHasMsg}</span>
             </div>`;
         }
         
@@ -432,9 +436,11 @@ function closeModal() {
 }
 
 // 掛載全域讓 onClick 可以呼叫
-window.deleteEntry = async function(id) {
+window.deleteEntry = async function(id, dateStr) {
     if(confirm('確定刪除此紀錄嗎？')) {
         await deleteDoc(doc(db, 'entries', id));
+        // 強制馬上重新渲染 Modal 內的清單，就不會有卡住的錯覺了
+        renderDailyRecords(dateStr);
     }
 }
 
@@ -459,7 +465,7 @@ function renderDailyRecords(dateStr) {
                 </div>
                 <div style="display:flex; align-items:center;">
                     ${exp.amount > 0 ? `<span class="record-amount">$${exp.amount.toLocaleString()}</span>` : ''}
-                    <button class="record-actions delete-btn" onclick="deleteEntry('${exp.id}')">刪除</button>
+                    <button class="record-actions delete-btn" onclick="deleteEntry('${exp.id}', '${dateStr}')">刪除</button>
                 </div>
             `;
             dailyRecordsList.appendChild(li);
