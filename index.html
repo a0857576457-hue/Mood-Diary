@@ -94,6 +94,14 @@
                 <h3 id="modal-title">新增心情日記</h3>
                 <button id="close-modal-btn" class="close-btn">&times;</button>
             </div>
+            <div id="daily-records" class="hidden">
+                <h4 style="margin-top:0;">心情紀錄</h4>
+                <ul id="daily-records-list" class="records-list"></ul>
+                <!-- 當日伴侶留言將顯示於下方 -->
+                <div id="partner-daily-mood" style="margin-top: 1rem; padding: 0.8rem; background:rgba(209, 172, 165, 0.2); border-radius: var(--radius-sm);"></div>
+                <div class="divider" style="margin: 1.5rem 0;"></div>
+            </div>
+
             <form id="expense-form" autocomplete="off">
                 <div class="form-group">
                     <label for="expense-date">日期</label>
@@ -147,14 +155,6 @@
 
                 <button type="submit" class="primary-btn full-width" id="submit-record-btn">儲存日記</button>
             </form>
-            
-            <div id="daily-records" class="hidden">
-                <div class="divider"></div>
-                <h4>當日私密與心情紀錄</h4>
-                <ul id="daily-records-list" class="records-list"></ul>
-                <!-- 當日伴侶留言將顯示於下方 -->
-                <div id="partner-daily-mood" style="margin-top: 1rem; padding: 0.8rem; background:rgba(209, 172, 165, 0.2); border-radius: var(--radius-sm);"></div>
-            </div>
         </div>
     </div>
 
