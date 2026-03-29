@@ -150,12 +150,17 @@ savePartnerBtn.addEventListener('click', async () => {
 
 // 拉取個人設定
 async function fetchUserProfile() {
-    const userRef = doc(db, 'users', currentUser.uid);
-    const snap = await getDoc(userRef);
-    if(snap.exists()){
-        profileData = snap.data();
+    try {
+        const userRef = doc(db, 'users', currentUser.uid);
+        const snap = await getDoc(userRef);
+        if(snap.exists()){
+            profileData = snap.data();
+        }
+        accountInfo.innerHTML = `<div>我：${currentUser.email}</div><div>伴侶：${profileData.partnerEmail || '未綁定'}</div>`;
+    } catch(e) {
+        console.error("讀取設定失敗", e);
+        accountInfo.innerHTML = `<div>我：${currentUser.email}</div><div>伴侶：(權限或是連線例外)</div>`;
     }
-    accountInfo.innerHTML = `<div>我：${currentUser.email}</div><div>伴侶：${profileData.partnerEmail || '未綁定'}</div>`;
 }
 
 // 設定 Firestore 即時監聽
@@ -383,8 +388,8 @@ async function handleAddExpense(e) {
         // 清空表單
         document.getElementById('expense-amount').value = '';
         document.getElementById('mood-message').value = '';
-        // 成功後立即刷新詳細紀錄，使用者才會感覺有反應
-        renderDailyRecords(date);
+        // 儲存成功後，最直覺的反饋就是直接關閉視窗，讓使用者看到底下的月曆表情更新！
+        closeModal();
     } catch(err) {
         alert("儲存失敗: " + err.message);
     } finally {
