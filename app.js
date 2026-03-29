@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
-import { getAuth, signInWithRedirect, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
+import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
 import { getFirestore, collection, addDoc, getDocs, onSnapshot, query, where, deleteDoc, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
 
 // === Firebase Config (從您的設定複製過來) ===
@@ -108,12 +108,14 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 // Google 登入
-loginBtn.addEventListener('click', () => {
-    const provider = new GoogleAuthProvider();
-    // PWA (手機 App) 環境下強烈建議使用 Redirect 方式登入，避免 Popup 被手機阻擋
-    signInWithRedirect(auth, provider).catch((error) => {
-        alert("登入準備失敗: " + error.message);
-    });
+loginBtn.addEventListener('click', async () => {
+    try {
+        const provider = new GoogleAuthProvider();
+        // 因為您已經將 GitHub 網址加入白名單，我們不用再依賴跳轉了，彈出視窗是最不會被切掉狀態的做法！
+        await signInWithPopup(auth, provider);
+    } catch (error) {
+        alert("登入發生錯誤，請截圖給我看: " + error.message);
+    }
 });
 
 // 登出
