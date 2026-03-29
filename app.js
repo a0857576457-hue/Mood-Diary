@@ -305,6 +305,14 @@ function setupEventListeners() {
     closeModalBtn.addEventListener('click', closeModal);
     expenseForm.addEventListener('submit', handleAddExpense);
     
+    // 當使用者在對話框內手動修改了日期時，上面顯示的「當日紀錄」也應該馬上跟著換天！
+    expenseDateInput.addEventListener('change', (e) => {
+        const newDateStr = e.target.value;
+        if (newDateStr) {
+            renderDailyRecords(newDateStr);
+        }
+    });
+    
     if (shareAppBtn) {
         shareAppBtn.addEventListener('click', async () => {
             if (navigator.share) {
@@ -547,6 +555,32 @@ window.deleteEntry = async function(id, dateStr) {
     }
 }
 
+// 掛載全域編輯功能
+window.editEntry = function(id) {
+    const exp = myEntries.find(e => e.id === id);
+    if(!exp) return;
+    
+    editingEntryId = exp.id;
+    document.getElementById('expense-amount').value = exp.amount > 0 ? exp.amount : '';
+    document.getElementById('mood-message').value = exp.moodMessage || '';
+    
+    if (exp.moodEmoji) {
+        const r = document.querySelector(`input[name="moodEmoji"][value="${exp.moodEmoji}"]`);
+        if(r) r.checked = true;
+    }
+    if (exp.category) {
+        const c = document.querySelector(`input[name="category"][value="${exp.category}"]`);
+        if(c) c.checked = true;
+    }
+    
+    document.getElementById('submit-record-btn').textContent = '💾 更新此紀錄';
+    
+    // 滾動並讓輸入框反白，引導使用者修改
+    const msgInput = document.getElementById('mood-message');
+    msgInput.focus();
+    msgInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
 function renderDailyRecords(dateStr) {
     // 渲染自己的紀錄 (包含金額與心情)
     const dailyMy = myEntries.filter(exp => exp.date === dateStr).sort((a,b) => b.timestamp - a.timestamp);
@@ -558,44 +592,20 @@ function renderDailyRecords(dateStr) {
         dailyMy.forEach(exp => {
             const li = document.createElement('li');
             li.className = 'record-item';
-            li.style.cursor = 'pointer';
-            li.title = '點擊即可編輯此紀錄';
             li.innerHTML = `
                 <div class="record-info">
-                    <div style="font-size:1.5rem; min-width: 35px;">${exp.moodEmoji || ''}</div>
+                    <div style="font-size:1.6rem; min-width: 40px;">${exp.moodEmoji || ''}</div>
                     <div class="record-meta">
-                        ${exp.amount > 0 ? `<span class="record-cat" style="color:${categoryColors[exp.category]}">${exp.category}</span>` : '<span class="record-cat">心情</span>'}
-                        <span style="font-size:0.85rem; color:var(--text-secondary); margin-left:4px;">(點擊編輯✏️)</span>
+                        ${exp.amount > 0 ? `<span class="record-cat" style="color:${categoryColors[exp.category]}; font-size:1.15rem; font-weight:600;">${exp.category}</span>` : '<span class="record-cat" style="font-size:1.15rem; font-weight:600;">心情</span>'}
                         ${exp.moodMessage ? `<div class="record-note" style="color:var(--primary-color); font-size:1.2rem; margin-top:6px; font-weight:500;">「${exp.moodMessage}」</div>` : ''}
                     </div>
                 </div>
-                <div style="display:flex; align-items:center;">
-                    ${exp.amount > 0 ? `<span class="record-amount" style="font-size:1.2rem;">$${exp.amount.toLocaleString()}</span>` : ''}
-                    <button class="record-actions delete-btn" onclick="event.stopPropagation(); deleteEntry('${exp.id}', '${dateStr}')">刪除</button>
+                <div style="display:flex; align-items:center; gap:0.5rem; justify-content:flex-end;">
+                    ${exp.amount > 0 ? `<span class="record-amount" style="font-size:1.2rem; margin-right:4px;">$${exp.amount.toLocaleString()}</span>` : ''}
+                    <button class="record-actions" style="background:#5c7cfa; color:white; border:none; padding:4px 8px; border-radius:var(--radius-sm); cursor:pointer; font-size:0.8rem;" onclick="editEntry('${exp.id}')">編輯</button>
+                    <button class="record-actions delete-btn" onclick="deleteEntry('${exp.id}', '${dateStr}')">刪除</button>
                 </div>
             `;
-            
-            li.addEventListener('click', () => {
-                editingEntryId = exp.id;
-                document.getElementById('expense-amount').value = exp.amount > 0 ? exp.amount : '';
-                document.getElementById('mood-message').value = exp.moodMessage || '';
-                
-                if (exp.moodEmoji) {
-                    const r = document.querySelector(`input[name="moodEmoji"][value="${exp.moodEmoji}"]`);
-                    if(r) r.checked = true;
-                }
-                if (exp.category) {
-                    const c = document.querySelector(`input[name="category"][value="${exp.category}"]`);
-                    if(c) c.checked = true;
-                }
-                
-                document.getElementById('submit-record-btn').textContent = '💾 更新此紀錄';
-                
-                // 滾動並讓輸入框反白，引導使用者修改
-                const msgInput = document.getElementById('mood-message');
-                msgInput.focus();
-                msgInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            });
             
             dailyRecordsList.appendChild(li);
         });
