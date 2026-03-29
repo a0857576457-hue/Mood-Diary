@@ -26,6 +26,60 @@ const ALLOWED_EMAILS = [
     "uniamber384@gmail.com"     // 改成伴侶的 Email
 ];
 
+// ====== 🎵 UI 音效系統 ======
+let audioCtx = null;
+function initAudio() {
+    if(!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+function playTapSound() {
+    try {
+        initAudio();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(300, audioCtx.currentTime + 0.05);
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.05);
+    } catch(e) {}
+}
+
+function playSuccessSound() {
+    try {
+        initAudio();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+        osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.08); // 輕快往上的和弦
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.1, audioCtx.currentTime + 0.15);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.3);
+    } catch(e) {}
+}
+
+// 全域監聽點擊，給予清脆的回饋音效
+document.addEventListener('click', (e) => {
+    // 只要是按鈕、標籤、日曆格子就發出短暫音效
+    const target = e.target.closest('button, .calendar-cell, .radio-label, .close-btn, .nav-btn, input[type="radio"]');
+    if (target) {
+        playTapSound();
+    }
+}, { capture: true });
+
+
 // === 全域狀態變數 ===
 let currentUser = null;
 let profileData = { partnerEmail: "" }; // 存放伴侶設定
@@ -163,6 +217,9 @@ savePartnerBtn.addEventListener('click', async () => {
         profileData.partnerEmail = email;
         profileData.enableNotifications = enableNotif;
         accountInfo.innerHTML = `我：${currentUser.email}<br/>伴侶：${email || '尚未綁定'}`;
+        
+        playSuccessSound(); // 伴侶綁定成功音效
+        
         partnerSetupModal.classList.add('hidden');
         if (location.hash === '#partner') history.back();
         
@@ -210,6 +267,8 @@ saveMegaphoneBtn.addEventListener('click', async () => {
             megaphoneText: text,
             timestamp: Date.now()
         }, { merge: true });
+        
+        playSuccessSound(); // 悄悄話送出成功音效
         
         megaphoneModal.classList.add('hidden');
         if (location.hash === '#megaphone') history.back();
@@ -630,6 +689,8 @@ async function handleAddExpense(e) {
             entryData.timestamp = Date.now();
             await addDoc(collection(db, 'entries'), entryData);
         }
+        
+        playSuccessSound(); // 儲存日記成功音效
         
         // 清空表單與重置編輯狀態
         document.getElementById('expense-amount').value = '';
