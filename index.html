@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>質感記帳本</title>
+    
+    <!-- PWA Meta Tags -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#D1ACA5">
+    <link rel="apple-touch-icon" href="icon-192.svg">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- 側邊總結面板 -->
+        <aside class="summary-panel glass-panel">
+            <div class="summary-header">
+                <h2>本月總覽</h2>
+                <div class="month-selector">
+                    <button id="prev-month-btn" class="icon-btn">&lt;</button>
+                    <span id="current-month-display">2026 年 3 月</span>
+                    <button id="next-month-btn" class="icon-btn">&gt;</button>
+                </div>
+            </div>
+            
+            <div class="total-expense" id="total-expense">
+                <span class="currency">NT$</span>
+                <span class="amount" id="monthly-total-amount">0</span>
+            </div>
+
+            <div class="category-breakdown" id="category-breakdown">
+                <!-- 類別統計將動態插入這裡 -->
+            </div>
+
+            <button id="add-expense-main-btn" class="primary-btn">
+                <span>+ 新增花費</span>
+            </button>
+        </aside>
+
+        <!-- 主要月曆視圖 -->
+        <main class="calendar-panel glass-panel">
+            <div class="calendar-header">
+                <div class="weekdays">
+                    <span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span>
+                </div>
+            </div>
+            <div class="calendar-grid" id="calendar-grid">
+                <!-- 日曆網格將動態插入這裡 -->
+            </div>
+        </main>
+    </div>
+
+    <!-- 新增/編輯花費的彈出視窗 -->
+    <div id="expense-modal" class="modal-overlay hidden">
+        <div class="modal glass-panel">
+            <div class="modal-header">
+                <h3 id="modal-title">新增花費</h3>
+                <button id="close-modal-btn" class="close-btn">&times;</button>
+            </div>
+            <form id="expense-form">
+                <div class="form-group">
+                    <label for="expense-date">日期</label>
+                    <input type="date" id="expense-date" required>
+                </div>
+                <div class="form-group">
+                    <label for="expense-category">類別</label>
+                    <div class="category-selector">
+                        <label class="radio-label">
+                            <input type="radio" name="category" value="飲食" checked> <span>飲食</span>
+                        </label>
+                        <label class="radio-label">
+                            <input type="radio" name="category" value="交通"> <span>交通</span>
+                        </label>
+                        <label class="radio-label">
+                            <input type="radio" name="category" value="娛樂"> <span>娛樂</span>
+                        </label>
+                        <label class="radio-label">
+                            <input type="radio" name="category" value="其他"> <span>其他</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="expense-amount">金額 (NT$)</label>
+                    <input type="number" id="expense-amount" min="1" required placeholder="例如：120">
+                </div>
+                <div class="form-group">
+                    <label for="expense-note">備註 (選填)</label>
+                    <input type="text" id="expense-note" placeholder="午餐、捷運、電影...">
+                </div>
+                <button type="submit" class="primary-btn full-width">儲存紀錄</button>
+            </form>
+            
+            <!-- 當日記錄列表 (僅在點擊日期時顯示) -->
+            <div id="daily-records" class="hidden">
+                <div class="divider"></div>
+                <h4>當日記錄</h4>
+                <ul id="daily-records-list" class="records-list"></ul>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        // 註冊 Service Worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                    .then((registration) => {
+                        console.log('ServiceWorker 註冊成功，範圍: ', registration.scope);
+                    })
+                    .catch((error) => {
+                        console.log('ServiceWorker 註冊失敗: ', error);
+                    });
+            });
+        }
+    </script>
+</body>
+</html>

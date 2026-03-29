@@ -1,0 +1,493 @@
+:root {
+    /* 淺米色背景主題 */
+    --bg-color: #F8F5EE;
+    --text-primary: #2C2C2C;
+    --text-secondary: #71717A;
+    --primary-color: #D1ACA5; /* 柔和玫瑰金或陶土粉色 */
+    --primary-hover: #C2968D;
+    --glass-bg: rgba(255, 255, 255, 0.65);
+    --glass-border: rgba(255, 255, 255, 0.4);
+    --shadow: 0 8px 32px rgba(139, 131, 120, 0.1);
+    
+    /* 類別顏色 */
+    --cat-food: #F4A261;
+    --cat-transport: #2A9D8F;
+    --cat-entertainment: #E76F51;
+    --cat-other: #A8AEDB;
+
+    /* 圓角 */
+    --radius-lg: 24px;
+    --radius-md: 16px;
+    --radius-sm: 8px;
+    
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background-color: var(--bg-color);
+    background-image: 
+        radial-gradient(at 0% 0%, rgba(209, 172, 165, 0.2) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(209, 172, 165, 0.15) 0px, transparent 50%);
+    background-size: cover;
+    background-attachment: fixed;
+    color: var(--text-primary);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 2rem;
+}
+
+.app-container {
+    display: flex;
+    gap: 2rem;
+    width: 100%;
+    max-width: 1200px;
+    height: 85vh;
+}
+
+/* Glassmorphism 共用類別 */
+.glass-panel {
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+    padding: 2rem;
+}
+
+/* --- 側邊總結區塊 --- */
+.summary-panel {
+    flex: 1;
+    min-width: 320px;
+    max-width: 380px;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.summary-header h2 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
+.month-selector {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(255, 255, 255, 0.5);
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius-sm);
+    font-weight: 500;
+}
+
+.icon-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1.2rem;
+    color: var(--text-secondary);
+    transition: color 0.2s;
+}
+
+.icon-btn:hover {
+    color: var(--primary-color);
+}
+
+.total-expense {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: rgba(255,255,255, 0.8);
+    padding: 2rem;
+    border-radius: var(--radius-md);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+}
+
+.currency {
+    font-size: 1rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+}
+
+.amount {
+    font-size: 3rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1;
+}
+
+.category-breakdown {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    overflow-y: auto;
+    padding-right: 0.5rem;
+}
+
+.category-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    background: rgba(255,255,255, 0.5);
+    border-radius: var(--radius-sm);
+    transition: transform 0.2s, background 0.2s;
+}
+
+.category-item:hover {
+    transform: translateY(-2px);
+    background: rgba(255,255,255, 0.8);
+}
+
+.cat-label-container {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+}
+
+.cat-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+}
+
+.cat-amount {
+    font-weight: 600;
+}
+
+.primary-btn {
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 1rem 1.5rem;
+    border-radius: var(--radius-md);
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    box-shadow: 0 4px 15px rgba(209, 172, 165, 0.4);
+}
+
+.primary-btn:hover {
+    background: var(--primary-hover);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(209, 172, 165, 0.5);
+}
+
+.full-width {
+    width: 100%;
+}
+
+/* --- 主要月曆區塊 --- */
+.calendar-panel {
+    flex: 3;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.calendar-header .weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    text-align: right;
+    padding: 1rem 0.5rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+}
+
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    grid-auto-rows: 1fr;
+    flex: 1;
+    gap: 1px;
+    background: rgba(0,0,0,0.03); /* 行列分隔線效果 */
+}
+
+.calendar-cell {
+    background: rgba(255, 255, 255, 0.4);
+    padding: 0.8rem;
+    display: flex;
+    flex-direction: column;
+    transition: background 0.2s, transform 0.2s;
+    cursor: pointer;
+    min-height: 100px;
+}
+
+.calendar-cell:hover {
+    background: rgba(255, 255, 255, 0.9);
+    z-index: 10;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    border-radius: var(--radius-sm);
+    transform: scale(1.02);
+}
+
+.calendar-cell.empty {
+    background: transparent;
+    cursor: default;
+}
+
+.calendar-cell.empty:hover {
+    transform: none;
+    box-shadow: none;
+    z-index: initial;
+}
+
+.calendar-cell.today .date {
+    background: var(--primary-color);
+    color: white;
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.date {
+    align-self: flex-end;
+    font-weight: 500;
+    margin-bottom: auto;
+    color: var(--text-primary);
+}
+
+/* 日期儲存格中的金額標籤 */
+.daily-total-badge {
+    align-self: flex-start;
+    background: rgba(255, 255, 255, 0.8);
+    padding: 0.3rem 0.6rem;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--primary-color);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    margin-top: 5px;
+    width: 100%;
+    text-align: right;
+    animation: fadeIn 0.3s ease;
+}
+
+.daily-total-badge.empty {
+    display: none;
+}
+
+/* 顯示在格子內的多筆小圓點指示 */
+.dots-container {
+    display: flex;
+    gap: 3px;
+    margin-top: 5px;
+    flex-wrap: wrap;
+    align-self: flex-start;
+}
+
+.small-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+}
+
+/* --- Modal 與表單 --- */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.2);
+    backdrop-filter: blur(5px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    opacity: 1;
+    transition: opacity 0.3s ease;
+}
+
+.modal-overlay.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.modal {
+    width: 100%;
+    max-width: 450px;
+    max-height: 90vh;
+    overflow-y: auto;
+    transform: translateY(0);
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.modal-overlay.hidden .modal {
+    transform: translateY(30px);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: var(--text-secondary);
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.form-group input[type="text"],
+.form-group input[type="number"],
+.form-group input[type="date"] {
+    width: 100%;
+    padding: 0.8rem 1rem;
+    border: 1px solid rgba(0,0,0,0.1);
+    border-radius: var(--radius-sm);
+    background: rgba(255,255,255,0.8);
+    font-family: inherit;
+    font-size: 1rem;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(209, 172, 165, 0.2);
+}
+
+/* 類別單選 */
+.category-selector {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+}
+
+.radio-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.8rem;
+    border: 1px solid rgba(0,0,0,0.1);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    background: rgba(255,255,255,0.5);
+    transition: all 0.2s;
+}
+
+.radio-label:hover {
+    background: rgba(255,255,255,0.9);
+}
+
+.radio-label input[type="radio"] {
+    accent-color: var(--primary-color);
+}
+
+.radio-label:has(input[type="radio"]:checked) {
+    border-color: var(--primary-color);
+    background: rgba(255,255,255,1);
+    box-shadow: 0 2px 8px rgba(209, 172, 165, 0.2);
+}
+
+/* Modal 中的紀錄列表 */
+.divider {
+    height: 1px;
+    background: rgba(0,0,0,0.1);
+    margin: 2rem 0;
+}
+
+.records-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+    margin-top: 1rem;
+}
+
+.record-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.8rem;
+    background: rgba(255,255,255,0.7);
+    border-radius: var(--radius-sm);
+    animation: fadeIn 0.3s;
+}
+
+.record-info {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+}
+
+.record-meta {
+    display: flex;
+    flex-direction: column;
+}
+
+.record-cat {
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.record-note {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.record-amount {
+    font-weight: 600;
+}
+
+.record-actions {
+    margin-left: 1rem;
+}
+
+.delete-btn {
+    background: #ff4d4f;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 0.3rem 0.6rem;
+    cursor: pointer;
+    font-size: 0.8rem;
+    opacity: 0.8;
+}
+
+.delete-btn:hover {
+    opacity: 1;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 900px) {
+    .app-container {
+        flex-direction: column;
+        height: auto;
+    }
+    .summary-panel {
+        max-width: none;
+    }
+}
