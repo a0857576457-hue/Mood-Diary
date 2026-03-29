@@ -715,12 +715,14 @@ window.editEntry = function(id) {
 }
 
 function renderDailyRecords(dateStr) {
+    // 每次渲染前必須先清空舊的 DOM，否則切換無紀錄的日期時，殘留的清單會造成混淆
+    dailyRecordsList.innerHTML = '';
+    
     // 渲染自己的紀錄 (包含金額與心情)
     const dailyMy = myEntries.filter(exp => exp.date === dateStr).sort((a,b) => b.timestamp - a.timestamp);
     
     if (dailyMy.length > 0) {
         dailyRecordsContainer.classList.remove('hidden');
-        dailyRecordsList.innerHTML = '';
         
         dailyMy.forEach(exp => {
             const li = document.createElement('li');
