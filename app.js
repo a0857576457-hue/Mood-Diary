@@ -81,6 +81,7 @@ const categoryColors = {
     '飲食': 'var(--cat-food)',
     '交通': 'var(--cat-transport)',
     '娛樂': 'var(--cat-entertainment)',
+    '薪資': '#2ecc71',
     '其他': 'var(--cat-other)'
 };
 
@@ -314,6 +315,22 @@ function setupEventListeners() {
             renderDailyRecords(newDateStr);
         }
     });
+
+    // 切換收支類型時，動態切換底下的分類選項
+    const expenseTypeRadios = document.querySelectorAll('input[name="expenseType"]');
+    const expenseCategoryGroup = document.getElementById('expense-category-group');
+    const incomeCategoryGroup = document.getElementById('income-category-group');
+    expenseTypeRadios.forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            if (e.target.value === 'income') {
+                expenseCategoryGroup.classList.add('hidden');
+                incomeCategoryGroup.classList.remove('hidden');
+            } else {
+                expenseCategoryGroup.classList.remove('hidden');
+                incomeCategoryGroup.classList.add('hidden');
+            }
+        });
+    });
     
     if (shareAppBtn) {
         shareAppBtn.addEventListener('click', async () => {
@@ -471,7 +488,26 @@ function renderSummary() {
         .filter(([, amt]) => amt > 0)
         .sort((a, b) => b[1] - a[1]);
         
+    const pieChart = document.getElementById('expense-pie-chart');
+    if (pieChart) {
+        if (sortedCategories.length > 0 && totalExp > 0) {
+            let gradientStops = [];
+            let currentPct = 0;
+            sortedCategories.forEach(([cat, amt]) => {
+                const pct = (amt / totalExp) * 100;
+                const color = categoryColors[cat] || 'var(--cat-other)';
+                gradientStops.push(`${color} ${currentPct}% ${currentPct + pct}%`);
+                currentPct += pct;
+            });
+            pieChart.style.background = `conic-gradient(${gradientStops.join(', ')})`;
+            pieChart.style.display = 'block';
+        } else {
+            pieChart.style.display = 'none';
+        }
+    }
+
     if (sortedCategories.length === 0) {
+        if (pieChart) pieChart.style.display = 'none';
         categoryBreakdown.innerHTML = '<div style="text-align:center;color:var(--text-secondary);margin-top:2rem;font-size:0.9rem;">本月尚無消費紀錄</div>';
         return;
     }
@@ -505,8 +541,14 @@ async function handleAddExpense(e) {
     const moodEmoji = moodEmojiInput ? moodEmojiInput.value : '';
     const moodMessage = document.getElementById('mood-message').value.trim();
     
-    const categoryInput = document.querySelector('input[name="category"]:checked');
-    const category = categoryInput ? categoryInput.value : '其他';
+    let category = '其他';
+    if (type === 'income') {
+        const cat = document.querySelector('input[name="incomeCategory"]:checked');
+        if (cat) category = cat.value;
+    } else {
+        const cat = document.querySelector('input[name="category"]:checked');
+        if (cat) category = cat.value;
+    }
     
     const amountVal = document.getElementById('expense-amount').value;
     const amount = amountVal ? parseFloat(amountVal) : 0;
@@ -588,10 +630,16 @@ window.editEntry = function(id) {
     
     if (exp.type) {
         const t = document.querySelector(`input[name="expenseType"][value="${exp.type}"]`);
-        if(t) t.checked = true;
+        if(t) {
+            t.checked = true;
+            t.dispatchEvent(new Event('change'));
+        }
     } else {
         const fallback = document.querySelector(`input[name="expenseType"][value="expense"]`);
-        if(fallback) fallback.checked = true;
+        if(fallback) {
+            fallback.checked = true;
+            fallback.dispatchEvent(new Event('change'));
+        }
     }
 
     if (exp.moodEmoji) {
@@ -599,8 +647,13 @@ window.editEntry = function(id) {
         if(r) r.checked = true;
     }
     if (exp.category) {
-        const c = document.querySelector(`input[name="category"][value="${exp.category}"]`);
-        if(c) c.checked = true;
+        if (exp.type === 'income') {
+            const c = document.querySelector(`input[name="incomeCategory"][value="${exp.category}"]`);
+            if(c) c.checked = true;
+        } else {
+            const c = document.querySelector(`input[name="category"][value="${exp.category}"]`);
+            if(c) c.checked = true;
+        }
     }
     
     document.getElementById('submit-record-btn').textContent = '💾 更新此紀錄';

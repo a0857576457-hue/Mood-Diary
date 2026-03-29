@@ -69,6 +69,9 @@
                 </div>
             </div>
 
+            <!-- 圓餅圖將用 JS 生成插入於此 -->
+            <div id="expense-pie-chart" class="pie-chart" style="display:none; width:140px; height:140px; border-radius:50%; margin: 1.5rem auto 0.5rem; box-shadow: 0 4px 10px rgba(0,0,0,0.1); transition: background 0.5s ease;"></div>
+
             <div class="category-breakdown" id="category-breakdown">
                 <!-- 類別統計將動態插入這裡 -->
             </div>
@@ -125,17 +128,26 @@
                 </div>
                 
                 <!-- 新增心情選項 -->
-                <div class="form-group">
+                <div class="form-group" style="overflow-x: auto; padding-bottom: 5px;">
                     <label>今日心情 (會分享給另一半)</label>
-                    <div class="category-selector" style="grid-template-columns: 1fr 1fr 1fr;">
+                    <div class="category-selector" style="grid-template-columns: repeat(6, 1fr); gap: 0.5rem; min-width: 320px;">
                         <label class="radio-label mood-label">
-                            <input type="radio" name="moodEmoji" value="😊" checked> <span style="font-size:2.5rem; margin:auto">😊</span>
+                            <input type="radio" name="moodEmoji" value="😊" checked> <span style="font-size:2rem; margin:auto">😊</span>
                         </label>
                         <label class="radio-label mood-label">
-                            <input type="radio" name="moodEmoji" value="😐"> <span style="font-size:2.5rem; margin:auto">😐</span>
+                            <input type="radio" name="moodEmoji" value="😐"> <span style="font-size:2rem; margin:auto">😐</span>
                         </label>
                         <label class="radio-label mood-label">
-                            <input type="radio" name="moodEmoji" value="😢"> <span style="font-size:2.5rem; margin:auto">😢</span>
+                            <input type="radio" name="moodEmoji" value="😢"> <span style="font-size:2rem; margin:auto">😢</span>
+                        </label>
+                        <label class="radio-label mood-label">
+                            <input type="radio" name="moodEmoji" value="😡"> <span style="font-size:2rem; margin:auto">😡</span>
+                        </label>
+                        <label class="radio-label mood-label">
+                            <input type="radio" name="moodEmoji" value="🥰"> <span style="font-size:2rem; margin:auto">🥰</span>
+                        </label>
+                        <label class="radio-label mood-label">
+                            <input type="radio" name="moodEmoji" value="🫩"> <span style="font-size:2rem; margin:auto">🫩</span>
                         </label>
                     </div>
                 </div>
@@ -147,8 +159,8 @@
 
                 <div class="divider" style="margin: 1.5rem 0;"></div>
 
-                <div class="form-group">
-                    <label for="expense-category">消費類別 (若無消費可不填這段，對方看不到紀錄)</label>
+                <div class="form-group" id="expense-category-group">
+                    <label>消費類別 (若無消費可不填這段，對方看不到紀錄)</label>
                     <div class="category-selector">
                         <label class="radio-label">
                             <input type="radio" name="category" value="飲食" checked> <span>飲食</span>
@@ -161,6 +173,18 @@
                         </label>
                         <label class="radio-label">
                             <input type="radio" name="category" value="其他"> <span>其他</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="form-group hidden" id="income-category-group">
+                    <label>收入來源 (此筆紀錄不會與伴侶分享)</label>
+                    <div class="category-selector" style="grid-template-columns: 1fr 1fr;">
+                        <label class="radio-label">
+                            <input type="radio" name="incomeCategory" value="薪資" checked> <span>薪資</span>
+                        </label>
+                        <label class="radio-label">
+                            <input type="radio" name="incomeCategory" value="其他"> <span>其他</span>
                         </label>
                     </div>
                 </div>
