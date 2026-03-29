@@ -351,20 +351,20 @@ function setupRealtimeSync() {
             snapshot.forEach(doc => {
                 const data = doc.data();
                 
-                // 私密心情過濾：如果對方選擇的是錢袋 💰，整筆紀錄當作私密日記，不互相分享
-                if (data.moodEmoji === '💰') return;
-                
-                let safeMoodEmoji = data.moodEmoji;
-                let safeMoodMessage = data.moodMessage;
+                let safeAmount = data.amount;
+                // 若對方選擇的是鈔票 💵，則對我方隱藏實際消費金額 (視為 0)
+                if (data.moodEmoji === '💵') {
+                    safeAmount = 0;
+                }
                 
                 partnerEntries.push({ 
                     id: doc.id, 
                     date: data.date, 
                     type: data.type,
-                    amount: data.amount,
+                    amount: safeAmount,
                     category: data.category,
-                    moodEmoji: safeMoodEmoji, 
-                    moodMessage: safeMoodMessage, 
+                    moodEmoji: data.moodEmoji, 
+                    moodMessage: data.moodMessage, 
                     timestamp: data.timestamp,
                     isMegaphone: data.isMegaphone,
                     megaphoneText: data.megaphoneText
@@ -872,14 +872,18 @@ function renderDailyRecords(dateStr) {
         dailyRecordsContainer.classList.remove('hidden');
         
         dailyMy.forEach(exp => {
+            const expDate = new Date(exp.timestamp);
+            const timeStr = `${String(expDate.getHours()).padStart(2, '0')}:${String(expDate.getMinutes()).padStart(2, '0')}`;
+            
             const li = document.createElement('li');
             li.className = 'record-item';
             li.innerHTML = `
                 <div class="record-info">
                     <div style="font-size:1.6rem; min-width: 40px;">${exp.moodEmoji || ''}</div>
                     <div class="record-meta">
-                        ${exp.amount > 0 ? `<span class="record-cat" style="color:${categoryColors[exp.category]}; font-size:1.15rem; font-weight:600;">${exp.category}</span>` : '<span class="record-cat" style="font-size:1.15rem; font-weight:600;">心情</span>'}
-                        ${exp.moodMessage ? `<div class="record-note" style="color:var(--primary-color); font-size:1.2rem; margin-top:6px; font-weight:500;">「${exp.moodMessage}」</div>` : ''}
+                        <div style="margin-bottom:2px;"><span style="font-size:0.85rem; color:var(--text-secondary); margin-right:6px; font-weight:500;">${timeStr}</span>
+                        ${exp.amount > 0 ? `<span class="record-cat" style="color:${categoryColors[exp.category] || '#999'}; font-size:1.15rem; font-weight:600;">${exp.category}</span>` : '<span class="record-cat" style="font-size:1.15rem; font-weight:600;">心情</span>'}</div>
+                        ${exp.moodMessage ? `<div class="record-note" style="color:var(--primary-color); font-size:1.2rem; margin-top:2px; font-weight:500;">「${exp.moodMessage}」</div>` : ''}
                     </div>
                 </div>
                 <div style="display:flex; align-items:center; gap:0.5rem; justify-content:flex-end;">
@@ -901,13 +905,17 @@ function renderDailyRecords(dateStr) {
     if(dailyPartner.length > 0) {
         let html = `<strong style="font-size:1.1rem; color:var(--text-primary)">另一半的紀錄：</strong><ul class="records-list" style="margin-top:0.5rem">`;
         dailyPartner.forEach(exp => {
+            const expDate = new Date(exp.timestamp);
+            const timeStr = `${String(expDate.getHours()).padStart(2, '0')}:${String(expDate.getMinutes()).padStart(2, '0')}`;
+            
             html += `
                 <li class="record-item" style="background: rgba(255,192,203,0.15); border-color: rgba(255,192,203,0.5);">
                     <div class="record-info">
                         <div style="font-size:1.6rem; min-width: 40px;">${exp.moodEmoji || ''}</div>
                         <div class="record-meta">
-                            ${exp.amount > 0 ? `<span class="record-cat" style="color:${categoryColors[exp.category] || '#999'}; font-size:1.15rem; font-weight:600;">${exp.category}</span>` : '<span class="record-cat" style="font-size:1.15rem; font-weight:600;">心情</span>'}
-                            ${exp.moodMessage ? `<div class="record-note" style="color:var(--text-secondary); font-size:1.2rem; margin-top:6px; font-weight:500;">「${exp.moodMessage}」</div>` : ''}
+                            <div style="margin-bottom:2px;"><span style="font-size:0.85rem; color:var(--text-secondary); margin-right:6px; font-weight:500;">${timeStr}</span>
+                            ${exp.amount > 0 ? `<span class="record-cat" style="color:${categoryColors[exp.category] || '#999'}; font-size:1.15rem; font-weight:600;">${exp.category}</span>` : '<span class="record-cat" style="font-size:1.15rem; font-weight:600;">心情</span>'}</div>
+                            ${exp.moodMessage ? `<div class="record-note" style="color:var(--text-secondary); font-size:1.2rem; margin-top:2px; font-weight:500;">「${exp.moodMessage}」</div>` : ''}
                         </div>
                     </div>
                     <div style="display:flex; align-items:center; gap:0.5rem; justify-content:flex-end;">
