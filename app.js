@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
-import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
+import { getAuth, signInWithRedirect, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
 import { getFirestore, collection, addDoc, getDocs, onSnapshot, query, where, deleteDoc, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
 
 // === Firebase Config (從您的設定複製過來) ===
@@ -110,8 +110,9 @@ onAuthStateChanged(auth, async (user) => {
 // Google 登入
 loginBtn.addEventListener('click', () => {
     const provider = new GoogleAuthProvider();
-    signInWithPopup(auth, provider).catch((error) => {
-        alert("登入失敗: " + error.message);
+    // PWA (手機 App) 環境下強烈建議使用 Redirect 方式登入，避免 Popup 被手機阻擋
+    signInWithRedirect(auth, provider).catch((error) => {
+        alert("登入準備失敗: " + error.message);
     });
 });
 
