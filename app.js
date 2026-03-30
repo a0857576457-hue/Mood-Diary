@@ -328,12 +328,26 @@ async function fetchUserProfile() {
 }
 
 // ====== 通知推播功能 ======
-window.showWhisperNotification = function() {
+window.showWhisperNotification = async function() {
     // 瀏覽器系統通知
     if ("Notification" in window && Notification.permission === "granted") {
-        new Notification("🤫 收到新悄悄話！", {
+        const notificationOptions = {
             body: "伴侶剛剛留了一則悄悄話給您哦～",
-        });
+            icon: new URL('./icon-192.png', window.location.href).toString(),
+            badge: new URL('./icon-192.png', window.location.href).toString(),
+            tag: 'new-whisper'
+        };
+
+        try {
+            if (document.hidden && 'serviceWorker' in navigator) {
+                const registration = await navigator.serviceWorker.ready;
+                await registration.showNotification("🤫 收到新悄悄話！", notificationOptions);
+            } else {
+                new Notification("🤫 收到新悄悄話！", notificationOptions);
+            }
+        } catch (error) {
+            console.warn('通知顯示失敗', error);
+        }
     }
     
     // 好看的漂浮 Toast 彈出視窗
@@ -358,6 +372,61 @@ let myUnsubscribe = null;
 let partnerUnsubscribe = null;
 let lastSeenWhisperText = null;
 let isPartnerFirstLoad = true;
+const PARTNER_MOOD_READ_STORAGE_KEY = 'partnerMoodReadState';
+
+function getLatestMoodEntry(entries) {
+    return entries
+        .filter(entry => entry && entry.moodEmoji)
+        .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))[0] || null;
+}
+
+function getPartnerMoodReadKey(entry) {
+    return `${entry.id}:${entry.timestamp || 0}:${entry.moodMessage || ''}`;
+}
+
+function getPartnerMoodReadState() {
+    if (!currentUser) return {};
+    try {
+        const raw = localStorage.getItem(`${PARTNER_MOOD_READ_STORAGE_KEY}:${currentUser.uid}`);
+        return raw ? JSON.parse(raw) : {};
+    } catch (error) {
+        console.warn('讀取已讀狀態失敗', error);
+        return {};
+    }
+}
+
+function savePartnerMoodReadState(state) {
+    if (!currentUser) return;
+    localStorage.setItem(`${PARTNER_MOOD_READ_STORAGE_KEY}:${currentUser.uid}`, JSON.stringify(state));
+}
+
+function isPartnerMoodMessageUnread(entry) {
+    if (!entry || !entry.moodMessage) return false;
+    const readState = getPartnerMoodReadState();
+    return !readState[getPartnerMoodReadKey(entry)];
+}
+
+function markPartnerMoodMessagesAsRead(dateStr) {
+    const dailyPartner = partnerEntries.filter(entry => entry.date === dateStr && !entry.isMegaphone && entry.moodMessage);
+    if (dailyPartner.length === 0) return false;
+
+    const readState = getPartnerMoodReadState();
+    let changed = false;
+
+    dailyPartner.forEach(entry => {
+        const key = getPartnerMoodReadKey(entry);
+        if (!readState[key]) {
+            readState[key] = true;
+            changed = true;
+        }
+    });
+
+    if (changed) {
+        savePartnerMoodReadState(readState);
+    }
+
+    return changed;
+}
 
 function setupRealtimeSync() {
     if(myUnsubscribe) myUnsubscribe();
@@ -474,7 +543,11 @@ function setupEventListeners() {
     expenseDateInput.addEventListener('change', (e) => {
         const newDateStr = e.target.value;
         if (newDateStr) {
+            const readStateChanged = markPartnerMoodMessagesAsRead(newDateStr);
             renderDailyRecords(newDateStr);
+            if (readStateChanged) {
+                renderCalendar();
+            }
         }
     });
 
@@ -608,18 +681,19 @@ function renderCalendar() {
         const dailyInc = dailyMy.filter(e => e.type === 'income').reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
         const dailyNet = dailyInc - dailyExp;
         
-        const myLastMoodEntry = dailyMy.find(e => e.moodEmoji);
+        const myLastMoodEntry = getLatestMoodEntry(dailyMy);
         const myMood = myLastMoodEntry ? myLastMoodEntry.moodEmoji : '';
-        const myHasMsg = myLastMoodEntry && myLastMoodEntry.moodMessage ? '<span style="font-size:0.8rem; vertical-align: top;">💬</span>' : '';
+        const myHasMsg = myLastMoodEntry && myLastMoodEntry.moodMessage ? '<span class="mood-message-indicator" aria-label="有心情小語">💬</span>' : '';
         
         // 伴侶當日資料
         const dailyPartner = partnerEntries.filter(e => e.date === dateStr && !e.isMegaphone);
-        const partnerLastMoodEntry = dailyPartner.find(e => e.moodEmoji);
+        const partnerLastMoodEntry = getLatestMoodEntry(dailyPartner);
         const partnerMood = partnerLastMoodEntry ? partnerLastMoodEntry.moodEmoji : '';
-        const partnerHasMsg = partnerLastMoodEntry && partnerLastMoodEntry.moodMessage ? '<span style="font-size:0.8rem; vertical-align: top; margin-left:1px;">💬</span>' : '';
+        const partnerHasMsg = partnerLastMoodEntry && partnerLastMoodEntry.moodMessage
+            ? `<span class="mood-message-indicator${isPartnerMoodMessageUnread(partnerLastMoodEntry) ? ' unread' : ''}" aria-label="伴侶有心情小語">💬</span>`
+            : '';
         
         let cellHTML = `<div class="date">${day}</div>`;
-        const dotsHTML = [];
         
         // 計算個人與伴侶消費筆數
         const myExpenseCount = dailyMy.filter(e => e.amount > 0).length;
@@ -627,14 +701,14 @@ function renderCalendar() {
         const totalExpenseCount = myExpenseCount + partnerExpenseCount;
 
         if (totalExpenseCount > 0) {
-            cellHTML += `<div style="margin-top:2px; text-align:center; padding: 0 4px; font-size: 0.8rem; color: var(--text-secondary); font-weight: 600; background: rgba(0,0,0,0.04); border-radius: 4px; display: inline-block;">📝 ${totalExpenseCount} 筆</div>`;
+            cellHTML += `<div class="entry-count-badge">${totalExpenseCount} 筆</div>`;
         }
         
         // 心情顯示區塊 (右下角放自己，左下角放伴侶)
         if (myMood || partnerMood) {
-            cellHTML += `<div style="display:flex; justify-content:space-between; margin-top:auto; font-size:1.3rem; padding: 0 2px;">
-                <span title="伴侶心情">${partnerMood}${partnerHasMsg}</span>
-                <span title="我的心情">${myMood}${myHasMsg}</span>
+            cellHTML += `<div class="calendar-mood-row">
+                <span class="calendar-mood-slot" title="伴侶心情">${partnerMood ? `<span class="calendar-mood-emoji">${partnerMood}</span>` : ''}${partnerHasMsg}</span>
+                <span class="calendar-mood-slot self" title="我的心情">${myMood ? `<span class="calendar-mood-emoji">${myMood}</span>` : ''}${myHasMsg}</span>
             </div>`;
         }
         
@@ -799,10 +873,15 @@ function openModal(defaultDateStr) {
     document.getElementById('custom-category-input').value = '';
     document.getElementById('submit-record-btn').textContent = '儲存日記';
     document.getElementById('custom-category-group').classList.add('hidden');
+
+    const readStateChanged = markPartnerMoodMessagesAsRead(defaultDateStr);
     
     expenseDateInput.value = defaultDateStr;
     renderDailyRecords(defaultDateStr);
     expenseModal.classList.remove('hidden');
+    if (readStateChanged) {
+        renderCalendar();
+    }
     
     // 每次點開輸入視窗，一律將捲軸回到最上方
     const modalContent = expenseModal.querySelector('.modal');

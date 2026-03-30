@@ -313,6 +313,61 @@ body {
     display: none;
 }
 
+.entry-count-badge {
+    margin-top: 2px;
+    text-align: center;
+    padding: 0 4px;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    font-weight: 600;
+    background: rgba(0,0,0,0.04);
+    border-radius: 4px;
+    display: inline-block;
+}
+
+.calendar-mood-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-top: auto;
+    padding: 0 2px;
+}
+
+.calendar-mood-slot {
+    display: inline-flex;
+    align-items: flex-start;
+    gap: 1px;
+    min-height: 1.1rem;
+}
+
+.calendar-mood-slot.self {
+    justify-content: flex-end;
+}
+
+.calendar-mood-emoji {
+    font-size: 0.975rem;
+    line-height: 1;
+}
+
+.mood-message-indicator {
+    position: relative;
+    font-size: 0.65rem;
+    line-height: 1;
+    vertical-align: top;
+}
+
+.mood-message-indicator.unread::after {
+    content: '';
+    position: absolute;
+    top: -2px;
+    right: -3px;
+    width: 6px;
+    height: 6px;
+    background: #ff4d4f;
+    border-radius: 50%;
+    box-shadow: 0 0 0 1px #fffdf9;
+}
+
 /* 顯示在格子內的多筆小圓點指示 */
 .dots-container {
     display: flex;
