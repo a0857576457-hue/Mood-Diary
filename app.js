@@ -163,6 +163,7 @@ const gameAnswerInput = document.getElementById('game-answer-input');
 const gameGuessInput = document.getElementById('game-guess-input');
 const submitDrawingBtn = document.getElementById('submit-drawing-btn');
 const submitGuessBtn = document.getElementById('submit-guess-btn');
+const resetDrawingBtn = document.getElementById('reset-drawing-btn');
 
 // 類別顏色對應
 const categoryColors = {
@@ -1202,6 +1203,11 @@ function initGameSystem() {
     });
 
     document.getElementById('clear-canvas-btn').addEventListener('click', () => {
+        clearCanvas();
+        playSound(200, 'sawtooth', 0.1, 100);
+    });
+
+    resetDrawingBtn?.addEventListener('click', () => {
         clearCanvas();
         playSound(200, 'sawtooth', 0.1, 100);
     });
