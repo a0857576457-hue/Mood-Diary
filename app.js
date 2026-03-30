@@ -381,6 +381,11 @@ function getLatestMoodEntry(entries) {
         .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))[0] || null;
 }
 
+function getCalendarMoodEmoji(entry) {
+    if (!entry?.moodEmoji) return '';
+    return ['💰', '💵'].includes(entry.moodEmoji) ? '' : entry.moodEmoji;
+}
+
 function getPartnerMoodReadKey(entry) {
     return `${entry.id}:${entry.timestamp || 0}:${entry.moodMessage || ''}`;
 }
@@ -683,13 +688,13 @@ function renderCalendar() {
         const dailyNet = dailyInc - dailyExp;
         
         const myLastMoodEntry = getLatestMoodEntry(dailyMy);
-        const myMood = myLastMoodEntry ? myLastMoodEntry.moodEmoji : '';
+        const myMood = getCalendarMoodEmoji(myLastMoodEntry);
         const myHasMsg = myLastMoodEntry && myLastMoodEntry.moodMessage ? '<span class="mood-message-indicator" aria-label="有心情小語">💬</span>' : '';
         
         // 伴侶當日資料
         const dailyPartner = partnerEntries.filter(e => e.date === dateStr && !e.isMegaphone);
         const partnerLastMoodEntry = getLatestMoodEntry(dailyPartner);
-        const partnerMood = partnerLastMoodEntry ? partnerLastMoodEntry.moodEmoji : '';
+        const partnerMood = getCalendarMoodEmoji(partnerLastMoodEntry);
         const partnerHasMsg = partnerLastMoodEntry && partnerLastMoodEntry.moodMessage
             ? `<span class="mood-message-indicator${isPartnerMoodMessageUnread(partnerLastMoodEntry) ? ' unread' : ''}" aria-label="伴侶有心情小語">💬</span>`
             : '';
