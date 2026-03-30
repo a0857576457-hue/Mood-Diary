@@ -1,14 +1,19 @@
-const CACHE_NAME = 'mood-diary-v4';
-const ASSETS_TO_CACHE = [
-  '/',
-  '/index.html',
-  '/style.css',
-  '/app.js',
-  '/manifest.json',
-  '/icon-192.svg',
-  '/icon-512.svg',
-  'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap'
+const CACHE_NAME = 'mood-diary-v5';
+const APP_SHELL = [
+  './',
+  './index.html',
+  './style.css',
+  './app.js',
+  './manifest.json',
+  './icon-192.png',
+  './icon-512.png'
 ];
+
+function resolveAssetUrl(path) {
+  return new URL(path, self.registration.scope).toString();
+}
+
+const ASSETS_TO_CACHE = APP_SHELL.map(resolveAssetUrl);
 
 // 安裝 Service Worker 並快取檔案
 self.addEventListener('install', (event) => {
@@ -18,6 +23,7 @@ self.addEventListener('install', (event) => {
         return cache.addAll(ASSETS_TO_CACHE);
       })
   );
+  self.skipWaiting();
 });
 
 // 清除舊快取
@@ -29,7 +35,7 @@ self.addEventListener('activate', (event) => {
           return caches.delete(key);
         }
       }));
-    })
+    }).then(() => self.clients.claim())
   );
 });
 

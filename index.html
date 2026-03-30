@@ -8,7 +8,7 @@
     <!-- PWA Meta Tags -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#D1ACA5">
-    <link rel="apple-touch-icon" href="icon-192.svg">
+    <link rel="apple-touch-icon" href="icon-192.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
@@ -323,7 +323,8 @@
         // 註冊 Service Worker (PWA offline access)
         if ('serviceWorker' in navigator && window.location.protocol !== 'file:') {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw.js')
+                const swUrl = new URL('./sw.js', window.location.href);
+                navigator.serviceWorker.register(swUrl, { scope: './' })
                     .then((registration) => {
                         console.log('ServiceWorker 註冊成功');
                     })
