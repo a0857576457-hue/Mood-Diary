@@ -329,51 +329,89 @@ async function fetchUserProfile() {
 }
 
 // ====== 通知推播功能 ======
-window.showWhisperNotification = async function() {
-    // 瀏覽器系統通知
+window.showAppNotification = async function({ title, body, tag, actionLabel, actionHandler, hash }) {
     if ("Notification" in window && Notification.permission === "granted") {
         const notificationOptions = {
-            body: "伴侶剛剛留了一則悄悄話給您哦～",
+            body,
             icon: new URL('./icon-192.png', window.location.href).toString(),
             badge: new URL('./icon-192.png', window.location.href).toString(),
-            tag: 'new-whisper'
+            tag,
+            data: hash ? { hash } : undefined
         };
 
         try {
             if (document.hidden && 'serviceWorker' in navigator) {
                 const registration = await navigator.serviceWorker.ready;
-                await registration.showNotification("🤫 收到新悄悄話！", notificationOptions);
+                await registration.showNotification(title, notificationOptions);
             } else {
-                new Notification("🤫 收到新悄悄話！", notificationOptions);
+                new Notification(title, notificationOptions);
             }
         } catch (error) {
             console.warn('通知顯示失敗', error);
         }
     }
-    
-    // 好看的漂浮 Toast 彈出視窗
-    const toast = document.createElement('div');
-    toast.innerHTML = `
-        <div style="position:fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #2a2a2a; color: white; padding: 12px 24px; border-radius: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); z-index: 9999; display: flex; align-items: center; gap: 10px; font-weight: bold; animation: slideDown 0.3s ease-out;">
-            <span style="font-size:1.5rem">🤫</span>
-            <span>伴侶傳來了新的悄悄話！</span>
-            <button onclick="document.getElementById('megaphone-btn').click(); this.parentElement.remove();" style="background: var(--primary-color); color: white; border: none; padding: 6px 12px; border-radius: 15px; cursor: pointer; font-size: 0.85rem; margin-left:10px; font-weight:bold;">點擊查看</button>
-        </div>
-    `;
-    document.body.appendChild(toast);
-    
-    // 5 秒後自動消失
-    setTimeout(() => {
-        if(toast.parentElement) toast.remove();
-    }, 5000);
+
+    if (!document.hidden) {
+        const icon = title.includes('悄悄話') ? '🤫' : '💬';
+        const toast = document.createElement('div');
+        toast.innerHTML = `
+            <div style="position:fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #2a2a2a; color: white; padding: 12px 24px; border-radius: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); z-index: 9999; display: flex; align-items: center; gap: 10px; font-weight: bold; animation: slideDown 0.3s ease-out;">
+                <span style="font-size:1.5rem">${icon}</span>
+                <span>${body}</span>
+                <button style="background: var(--primary-color); color: white; border: none; padding: 6px 12px; border-radius: 15px; cursor: pointer; font-size: 0.85rem; margin-left:10px; font-weight:bold;">${actionLabel}</button>
+            </div>
+        `;
+        const actionButton = toast.querySelector('button');
+        actionButton?.addEventListener('click', () => {
+            actionHandler?.();
+            toast.remove();
+        });
+        document.body.appendChild(toast);
+
+        setTimeout(() => {
+            if (toast.parentElement) toast.remove();
+        }, 5000);
+    }
+
+    if (navigator.vibrate) {
+        navigator.vibrate([80, 40, 80]);
+    }
+};
+
+window.showWhisperNotification = function() {
+    return window.showAppNotification({
+        title: "🤫 收到新悄悄話！",
+        body: "伴侶傳來了新的悄悄話！",
+        tag: 'new-whisper',
+        actionLabel: '點擊查看',
+        actionHandler: () => document.getElementById('megaphone-btn')?.click(),
+        hash: '#megaphone'
+    });
+};
+
+window.showMoodMessageNotification = function(entry) {
+    return window.showAppNotification({
+        title: "💬 收到新的心情小語",
+        body: entry?.moodMessage ? `伴侶說：${entry.moodMessage}` : "伴侶新增了一則心情小語",
+        tag: `partner-mood-${entry?.id || 'latest'}`,
+        actionLabel: '打開查看',
+        actionHandler: () => {
+            if (entry?.date) {
+                openModal(entry.date);
+            }
+        },
+        hash: entry?.date ? '#expense' : undefined
+    });
 };
 
 // 設定 Firestore 即時監聽
 let myUnsubscribe = null;
 let partnerUnsubscribe = null;
 let lastSeenWhisperText = null;
+let lastSeenPartnerMoodNotificationKey = null;
 let isPartnerFirstLoad = true;
 const PARTNER_MOOD_READ_STORAGE_KEY = 'partnerMoodReadState';
+const PARTNER_NOTIFY_STORAGE_KEY = 'partnerNotifyState';
 
 function getLatestMoodEntry(entries) {
     return entries
@@ -415,6 +453,33 @@ function savePartnerMoodReadState(state) {
     localStorage.setItem(`${PARTNER_MOOD_READ_STORAGE_KEY}:${currentUser.uid}`, JSON.stringify(state));
 }
 
+function getPartnerNotifyState() {
+    if (!currentUser) return {};
+    try {
+        const raw = localStorage.getItem(`${PARTNER_NOTIFY_STORAGE_KEY}:${currentUser.uid}`);
+        return raw ? JSON.parse(raw) : {};
+    } catch (error) {
+        console.warn('讀取通知狀態失敗', error);
+        return {};
+    }
+}
+
+function savePartnerNotifyState(state) {
+    if (!currentUser) return;
+    localStorage.setItem(`${PARTNER_NOTIFY_STORAGE_KEY}:${currentUser.uid}`, JSON.stringify(state));
+}
+
+function getPartnerMoodNotificationKey(entry) {
+    if (!entry?.moodMessage) return null;
+    return `${entry.id}:${entry.timestamp || 0}:${entry.moodMessage}`;
+}
+
+function getLatestPartnerMoodMessageEntry(entries) {
+    return [...entries]
+        .filter(entry => entry && entry.moodMessage && !entry.isMegaphone)
+        .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))[0] || null;
+}
+
 function isPartnerMoodMessageUnread(entry) {
     if (!entry || !entry.moodMessage) return false;
     const readState = getPartnerMoodReadState();
@@ -449,6 +514,7 @@ function setupRealtimeSync() {
     
     isPartnerFirstLoad = true;
     lastSeenWhisperText = null;
+    lastSeenPartnerMoodNotificationKey = null;
     
     // 啟動你畫我猜的同步
     setupGameSync();
@@ -494,17 +560,32 @@ function setupRealtimeSync() {
             // 通知判斷邏輯
             const pMega = partnerEntries.find(e => e.isMegaphone);
             const currentWhisper = pMega && pMega.megaphoneText ? pMega.megaphoneText : null;
+            const latestPartnerMoodEntry = getLatestPartnerMoodMessageEntry(partnerEntries);
+            const latestMoodNotificationKey = getPartnerMoodNotificationKey(latestPartnerMoodEntry);
+            const notifyState = getPartnerNotifyState();
             
             if (isPartnerFirstLoad) {
                 // 初次載入，只同步狀態，不播通知
                 lastSeenWhisperText = currentWhisper;
+                lastSeenPartnerMoodNotificationKey = latestMoodNotificationKey;
+                notifyState.whisper = currentWhisper;
+                notifyState.mood = latestMoodNotificationKey;
+                savePartnerNotifyState(notifyState);
                 isPartnerFirstLoad = false;
-            } else if (currentWhisper !== lastSeenWhisperText) {
-                // 有被更動過狀態，且是新訊息 (非清空狀態)，且用戶開啟了通知
-                if (currentWhisper && profileData.enableNotifications) {
+            } else {
+                if (currentWhisper && currentWhisper !== lastSeenWhisperText && currentWhisper !== notifyState.whisper && profileData.enableNotifications) {
                     window.showWhisperNotification();
+                    notifyState.whisper = currentWhisper;
                 }
+
+                if (latestPartnerMoodEntry && latestMoodNotificationKey && latestMoodNotificationKey !== lastSeenPartnerMoodNotificationKey && latestMoodNotificationKey !== notifyState.mood && profileData.enableNotifications) {
+                    window.showMoodMessageNotification(latestPartnerMoodEntry);
+                    notifyState.mood = latestMoodNotificationKey;
+                }
+
                 lastSeenWhisperText = currentWhisper;
+                lastSeenPartnerMoodNotificationKey = latestMoodNotificationKey;
+                savePartnerNotifyState(notifyState);
             }
             
             updateView();

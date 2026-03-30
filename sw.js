@@ -59,16 +59,21 @@ self.addEventListener('fetch', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+  const targetHash = event.notification.data?.hash || '';
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       for (const client of clientList) {
         if ('focus' in client) {
-          return client.focus();
+          const focusPromise = client.focus();
+          if (targetHash && 'navigate' in client) {
+            return focusPromise.then(() => client.navigate(`${self.registration.scope}${targetHash}`));
+          }
+          return focusPromise;
         }
       }
 
       if (self.clients.openWindow) {
-        return self.clients.openWindow(self.registration.scope);
+        return self.clients.openWindow(`${self.registration.scope}${targetHash}`);
       }
     })
   );
