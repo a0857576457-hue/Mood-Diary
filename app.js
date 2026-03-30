@@ -1323,7 +1323,7 @@ function updateGameUI() {
             gameStatusText.textContent = '🎨 您的回合！請作畫出題';
             dCanvas.style.display = 'block';
             guessImage.style.display = 'none';
-            drawerTools.classList.remove('hidden');
+            drawerTools.classList.add('hidden');
             drawerInputZone.classList.remove('hidden');
             guesserInputZone.classList.add('hidden');
         } else {
