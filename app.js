@@ -386,6 +386,15 @@ function getCalendarMoodEmoji(entry) {
     return ['💰', '💵'].includes(entry.moodEmoji) ? '' : entry.moodEmoji;
 }
 
+function getLatestDisplayMoodEmoji(entries) {
+    const sortedEntries = [...entries].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+    for (const entry of sortedEntries) {
+        const emoji = getCalendarMoodEmoji(entry);
+        if (emoji) return emoji;
+    }
+    return '';
+}
+
 function getPartnerMoodReadKey(entry) {
     return `${entry.id}:${entry.timestamp || 0}:${entry.moodMessage || ''}`;
 }
@@ -688,13 +697,13 @@ function renderCalendar() {
         const dailyNet = dailyInc - dailyExp;
         
         const myLastMoodEntry = getLatestMoodEntry(dailyMy);
-        const myMood = getCalendarMoodEmoji(myLastMoodEntry);
+        const myMood = getLatestDisplayMoodEmoji(dailyMy);
         const myHasMsg = myLastMoodEntry && myLastMoodEntry.moodMessage ? '<span class="mood-message-indicator" aria-label="有心情小語">💬</span>' : '';
         
         // 伴侶當日資料
         const dailyPartner = partnerEntries.filter(e => e.date === dateStr && !e.isMegaphone);
         const partnerLastMoodEntry = getLatestMoodEntry(dailyPartner);
-        const partnerMood = getCalendarMoodEmoji(partnerLastMoodEntry);
+        const partnerMood = getLatestDisplayMoodEmoji(dailyPartner);
         const partnerHasMsg = partnerLastMoodEntry && partnerLastMoodEntry.moodMessage
             ? `<span class="mood-message-indicator${isPartnerMoodMessageUnread(partnerLastMoodEntry) ? ' unread' : ''}" aria-label="伴侶有心情小語">💬</span>`
             : '';
@@ -1409,7 +1418,11 @@ submitDrawingBtn.addEventListener('click', async () => {
         });
         
         gameAnswerInput.value = '';
-        closeGameBtn.click();
+        guessImage.src = dataUrl;
+        dCanvas.style.display = 'none';
+        guessImage.style.display = 'block';
+        drawerInputZone.classList.add('hidden');
+        guesserInputZone.classList.add('hidden');
         playSound(300, 'sine', 0.1, 400); playSound(500, 'sine', 0.2, 600);
     } catch(err) {
         console.error(err);
