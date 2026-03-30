@@ -1132,7 +1132,11 @@ function initGameSystem() {
     }
 
     function startDraw(e) {
-        if (drawerTools.classList.contains('hidden')) return;
+        const canDraw = !gameModal.classList.contains('hidden')
+            && currentGameData?.status === 'waiting_for_drawing'
+            && currentGameData?.turnUid === currentUser?.email
+            && !drawerInputZone.classList.contains('hidden');
+        if (!canDraw) return;
         e.preventDefault();
         activePointerId = e.pointerId;
         dCanvas.setPointerCapture?.(e.pointerId);
