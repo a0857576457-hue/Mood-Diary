@@ -31,6 +31,11 @@
     touch-action: manipulation;
 }
 
+html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+}
+
 body {
     background-color: var(--bg-color);
     background-image: 
@@ -44,6 +49,7 @@ body {
     justify-content: center;
     align-items: center;
     padding: 2rem;
+    overscroll-behavior: none;
 }
 
 .app-container {
@@ -228,6 +234,7 @@ body {
     flex: 1;
     gap: 1px;
     background: rgba(0,0,0,0.03); /* 行列分隔線效果 */
+    contain: layout paint;
 }
 
 .calendar-cell {
@@ -350,6 +357,15 @@ body {
     transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     will-change: transform;
     -webkit-overflow-scrolling: touch;
+}
+
+#drawing-canvas,
+#guess-image {
+    transform: translateZ(0);
+}
+
+#drawing-canvas {
+    touch-action: none;
 }
 
 .modal-overlay.hidden .modal {
@@ -559,5 +575,50 @@ body {
         width: 24px;
         height: 24px;
         font-size: 0.9rem;
+    }
+}
+
+@media (hover: none), (pointer: coarse) {
+    body {
+        background-attachment: scroll;
+    }
+
+    .glass-panel,
+    .modal-overlay {
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+    }
+
+    .primary-btn,
+    .calendar-cell,
+    .category-item,
+    .radio-label,
+    .modal-overlay,
+    .modal,
+    .daily-total-badge,
+    .record-item {
+        transition: none;
+        animation: none;
+    }
+
+    .primary-btn:hover,
+    .calendar-cell:hover,
+    .category-item:hover,
+    .radio-label:hover {
+        transform: none;
+        box-shadow: none;
+    }
+
+    .primary-btn:hover {
+        background: var(--primary-color);
+    }
+
+    .calendar-cell:hover {
+        background: rgba(255, 255, 255, 0.4);
+    }
+
+    .category-item:hover,
+    .radio-label:hover {
+        background: rgba(255,255,255, 0.5);
     }
 }

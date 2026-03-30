@@ -989,35 +989,74 @@ let drawCtx = null;
 let isDrawing = false;
 let currentLineColor = '#000000';
 let gameTimerInterval = null;
+let activePointerId = null;
+let drawFrameId = null;
+let pendingDrawPoint = null;
 
 function initGameSystem() {
-    drawCtx = dCanvas.getContext('2d');
+    drawCtx = dCanvas.getContext('2d', { alpha: false, desynchronized: true }) || dCanvas.getContext('2d');
     
     // 初始化畫布設定 (採用白色背景，避免輸出 JPG 變黑)
     function clearCanvas() {
+        drawCtx.save();
+        drawCtx.setTransform(1, 0, 0, 1, 0, 0);
         drawCtx.fillStyle = '#ffffff';
         drawCtx.fillRect(0, 0, dCanvas.width, dCanvas.height);
+        drawCtx.restore();
         drawCtx.lineCap = 'round';
         drawCtx.lineJoin = 'round';
         drawCtx.lineWidth = 4;
         drawCtx.strokeStyle = currentLineColor;
     }
-    clearCanvas();
+
+    function setupCanvasSize() {
+        const rect = dCanvas.parentElement.getBoundingClientRect();
+        if (!rect.width) return;
+
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const cssWidth = Math.floor(rect.width);
+        const cssHeight = 300;
+
+        dCanvas.style.width = `${cssWidth}px`;
+        dCanvas.style.height = `${cssHeight}px`;
+        dCanvas.width = Math.floor(cssWidth * dpr);
+        dCanvas.height = Math.floor(cssHeight * dpr);
+
+        drawCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        clearCanvas();
+    }
+
+    setupCanvasSize();
     
     // 轉換座標的 helper (適應任何 CSS width)
     function getPos(e) {
         const rect = dCanvas.getBoundingClientRect();
-        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
         return {
-            x: (clientX - rect.left) * (dCanvas.width / rect.width),
-            y: (clientY - rect.top) * (dCanvas.height / rect.height)
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top
         };
+    }
+
+    function flushDraw() {
+        drawFrameId = null;
+        if (!isDrawing || !pendingDrawPoint) return;
+        drawCtx.lineTo(pendingDrawPoint.x, pendingDrawPoint.y);
+        drawCtx.stroke();
+        pendingDrawPoint = null;
+    }
+
+    function queueDraw(point) {
+        pendingDrawPoint = point;
+        if (!drawFrameId) {
+            drawFrameId = window.requestAnimationFrame(flushDraw);
+        }
     }
 
     function startDraw(e) {
         if (drawerTools.classList.contains('hidden')) return;
         e.preventDefault();
+        activePointerId = e.pointerId;
+        dCanvas.setPointerCapture?.(e.pointerId);
         isDrawing = true;
         const pos = getPos(e);
         drawCtx.beginPath();
@@ -1025,31 +1064,45 @@ function initGameSystem() {
     }
 
     function drawing(e) {
-        if (!isDrawing) return;
+        if (!isDrawing || e.pointerId !== activePointerId) return;
         e.preventDefault();
-        const pos = getPos(e);
-        drawCtx.lineTo(pos.x, pos.y);
-        drawCtx.stroke();
+        queueDraw(getPos(e));
     }
 
     function stopDraw(e) {
-        if (isDrawing) {
-            e.preventDefault();
-            isDrawing = false;
-            drawCtx.beginPath();
+        if (e.pointerId !== activePointerId) return;
+        e.preventDefault();
+        if (drawFrameId) {
+            window.cancelAnimationFrame(drawFrameId);
+            drawFrameId = null;
         }
+        if (pendingDrawPoint) {
+            drawCtx.lineTo(pendingDrawPoint.x, pendingDrawPoint.y);
+            drawCtx.stroke();
+            pendingDrawPoint = null;
+        }
+        isDrawing = false;
+        activePointerId = null;
+        dCanvas.releasePointerCapture?.(e.pointerId);
+        drawCtx.beginPath();
     }
 
-    // 事件綁定 (滑鼠)
-    dCanvas.addEventListener('mousedown', startDraw);
-    dCanvas.addEventListener('mousemove', drawing);
-    dCanvas.addEventListener('mouseup', stopDraw);
-    dCanvas.addEventListener('mouseout', stopDraw);
-    // 事件綁定 (觸控)
-    dCanvas.addEventListener('touchstart', startDraw, {passive: false});
-    dCanvas.addEventListener('touchmove', drawing, {passive: false});
-    dCanvas.addEventListener('touchend', stopDraw, {passive: false});
-    dCanvas.addEventListener('touchcancel', stopDraw, {passive: false});
+    dCanvas.addEventListener('pointerdown', startDraw, { passive: false });
+    dCanvas.addEventListener('pointermove', drawing, { passive: false });
+    dCanvas.addEventListener('pointerup', stopDraw, { passive: false });
+    dCanvas.addEventListener('pointercancel', stopDraw, { passive: false });
+    dCanvas.addEventListener('pointerleave', stopDraw, { passive: false });
+
+    let resizeRafId = null;
+    window.addEventListener('resize', () => {
+        if (resizeRafId) return;
+        resizeRafId = window.requestAnimationFrame(() => {
+            resizeRafId = null;
+            if (!gameModal.classList.contains('hidden') && currentGameData?.status === 'waiting_for_drawing' && currentGameData?.turnUid === currentUser?.email) {
+                setupCanvasSize();
+            }
+        });
+    });
 
     // 工具列綁定
     document.querySelectorAll('.color-btn').forEach(btn => {
@@ -1087,10 +1140,17 @@ gameBtn.addEventListener('click', () => {
     if (currentGameData && currentGameData.status === 'waiting_for_drawing' && currentGameData.turnUid === currentUser.email) {
         const rect = dCanvas.parentElement.getBoundingClientRect();
         if(rect.width > 0) {
-            dCanvas.width = rect.width;
-            dCanvas.height = 300;
+            const dpr = Math.min(window.devicePixelRatio || 1, 2);
+            dCanvas.style.width = `${Math.floor(rect.width)}px`;
+            dCanvas.style.height = '300px';
+            dCanvas.width = Math.floor(rect.width * dpr);
+            dCanvas.height = Math.floor(300 * dpr);
+            drawCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            drawCtx.save();
+            drawCtx.setTransform(1, 0, 0, 1, 0, 0);
             drawCtx.fillStyle = '#ffffff';
             drawCtx.fillRect(0, 0, dCanvas.width, dCanvas.height);
+            drawCtx.restore();
             drawCtx.lineWidth = 4;
             drawCtx.strokeStyle = currentLineColor;
         }
@@ -1309,4 +1369,3 @@ submitGuessBtn.addEventListener('click', async () => {
     }
     submitGuessBtn.disabled = false;
 });
-
