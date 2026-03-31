@@ -1167,26 +1167,43 @@ let gameTimerInterval = null;
 let activePointerId = null;
 let drawFrameId = null;
 let pendingDrawPoint = null;
+let currentDrawTool = 'pen';
+let resizeGameCanvas = null;
 
 function initGameSystem() {
     drawCtx = dCanvas.getContext('2d', { alpha: false, desynchronized: true }) || dCanvas.getContext('2d');
+    const eraserToolBtn = document.getElementById('eraser-tool-btn');
     
     // 初始化畫布設定 (採用白色背景，避免輸出 JPG 變黑)
+    function applyCurrentBrush() {
+        drawCtx.lineCap = 'round';
+        drawCtx.lineJoin = 'round';
+        drawCtx.lineWidth = currentDrawTool === 'eraser' ? 18 : 4;
+        drawCtx.globalCompositeOperation = currentDrawTool === 'eraser' ? 'destination-out' : 'source-over';
+        drawCtx.strokeStyle = currentDrawTool === 'eraser' ? 'rgba(0,0,0,1)' : currentLineColor;
+    }
+
     function clearCanvas() {
         drawCtx.save();
         drawCtx.setTransform(1, 0, 0, 1, 0, 0);
+        drawCtx.globalCompositeOperation = 'source-over';
         drawCtx.fillStyle = '#ffffff';
         drawCtx.fillRect(0, 0, dCanvas.width, dCanvas.height);
         drawCtx.restore();
-        drawCtx.lineCap = 'round';
-        drawCtx.lineJoin = 'round';
-        drawCtx.lineWidth = 4;
-        drawCtx.strokeStyle = currentLineColor;
+        applyCurrentBrush();
     }
 
-    function setupCanvasSize() {
+    function setupCanvasSize(preserveDrawing = true) {
         const rect = dCanvas.parentElement.getBoundingClientRect();
         if (!rect.width) return;
+
+        let snapshotCanvas = null;
+        if (preserveDrawing && dCanvas.width > 0 && dCanvas.height > 0) {
+            snapshotCanvas = document.createElement('canvas');
+            snapshotCanvas.width = dCanvas.width;
+            snapshotCanvas.height = dCanvas.height;
+            snapshotCanvas.getContext('2d').drawImage(dCanvas, 0, 0);
+        }
 
         const dpr = Math.min(window.devicePixelRatio || 1, 2);
         const cssWidth = Math.floor(rect.width);
@@ -1199,9 +1216,19 @@ function initGameSystem() {
 
         drawCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
         clearCanvas();
+
+        if (snapshotCanvas) {
+            drawCtx.save();
+            drawCtx.setTransform(1, 0, 0, 1, 0, 0);
+            drawCtx.globalCompositeOperation = 'source-over';
+            drawCtx.drawImage(snapshotCanvas, 0, 0, dCanvas.width, dCanvas.height);
+            drawCtx.restore();
+            applyCurrentBrush();
+        }
     }
 
-    setupCanvasSize();
+    resizeGameCanvas = setupCanvasSize;
+    setupCanvasSize(false);
     
     // 轉換座標的 helper (適應任何 CSS width)
     function getPos(e) {
@@ -1278,7 +1305,7 @@ function initGameSystem() {
         resizeRafId = window.requestAnimationFrame(() => {
             resizeRafId = null;
             if (!gameModal.classList.contains('hidden') && currentGameData?.status === 'waiting_for_drawing' && currentGameData?.turnUid === currentUser?.email) {
-                setupCanvasSize();
+                setupCanvasSize(true);
             }
         });
     });
@@ -1286,15 +1313,33 @@ function initGameSystem() {
     // 工具列綁定
     document.querySelectorAll('.color-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
+            currentDrawTool = 'pen';
             document.querySelectorAll('.color-btn').forEach(b => {
                 b.style.borderColor = b.dataset.color === '#000000' ? '#000' : 'transparent';
                 if (b === e.target && b.dataset.color !== '#000000') b.style.borderColor = '#000';
             });
             if (e.target.dataset.color === '#000000') e.target.style.borderColor = '#fff'; // 反差標示
+            if (eraserToolBtn) {
+                eraserToolBtn.style.background = '#fff';
+                eraserToolBtn.style.borderColor = '#d9d9d9';
+                eraserToolBtn.style.color = '#2C2C2C';
+            }
             currentLineColor = e.target.dataset.color;
-            drawCtx.strokeStyle = currentLineColor;
+            applyCurrentBrush();
             playSound(300, 'sine', 0.05, 100);
         });
+    });
+
+    eraserToolBtn?.addEventListener('click', () => {
+        currentDrawTool = 'eraser';
+        document.querySelectorAll('.color-btn').forEach(b => {
+            b.style.borderColor = b.dataset.color === '#000000' ? '#000' : 'transparent';
+        });
+        eraserToolBtn.style.background = '#2C2C2C';
+        eraserToolBtn.style.borderColor = '#2C2C2C';
+        eraserToolBtn.style.color = '#fff';
+        applyCurrentBrush();
+        playSound(180, 'triangle', 0.05, 120);
     });
 
     document.getElementById('clear-canvas-btn').addEventListener('click', () => {
@@ -1324,19 +1369,7 @@ gameBtn.addEventListener('click', () => {
     if (currentGameData && currentGameData.status === 'waiting_for_drawing' && currentGameData.turnUid === currentUser.email) {
         const rect = dCanvas.parentElement.getBoundingClientRect();
         if(rect.width > 0) {
-            const dpr = Math.min(window.devicePixelRatio || 1, 2);
-            dCanvas.style.width = `${Math.floor(rect.width)}px`;
-            dCanvas.style.height = '300px';
-            dCanvas.width = Math.floor(rect.width * dpr);
-            dCanvas.height = Math.floor(300 * dpr);
-            drawCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
-            drawCtx.save();
-            drawCtx.setTransform(1, 0, 0, 1, 0, 0);
-            drawCtx.fillStyle = '#ffffff';
-            drawCtx.fillRect(0, 0, dCanvas.width, dCanvas.height);
-            drawCtx.restore();
-            drawCtx.lineWidth = 4;
-            drawCtx.strokeStyle = currentLineColor;
+            resizeGameCanvas?.(true);
         }
     }
 });
@@ -1428,7 +1461,7 @@ function updateGameUI() {
             gameStatusText.textContent = '🎨 您的回合！請作畫出題';
             dCanvas.style.display = 'block';
             guessImage.style.display = 'none';
-            drawerTools.classList.add('hidden');
+            drawerTools.classList.remove('hidden');
             drawerInputZone.classList.remove('hidden');
             guesserInputZone.classList.add('hidden');
         } else {
