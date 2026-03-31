@@ -1179,8 +1179,8 @@ function initGameSystem() {
         drawCtx.lineCap = 'round';
         drawCtx.lineJoin = 'round';
         drawCtx.lineWidth = currentDrawTool === 'eraser' ? 18 : 4;
-        drawCtx.globalCompositeOperation = currentDrawTool === 'eraser' ? 'destination-out' : 'source-over';
-        drawCtx.strokeStyle = currentDrawTool === 'eraser' ? 'rgba(0,0,0,1)' : currentLineColor;
+        drawCtx.globalCompositeOperation = 'source-over';
+        drawCtx.strokeStyle = currentDrawTool === 'eraser' ? '#ffffff' : currentLineColor;
     }
 
     function clearCanvas() {
@@ -1340,11 +1340,6 @@ function initGameSystem() {
         eraserToolBtn.style.color = '#fff';
         applyCurrentBrush();
         playSound(180, 'triangle', 0.05, 120);
-    });
-
-    document.getElementById('clear-canvas-btn').addEventListener('click', () => {
-        clearCanvas();
-        playSound(200, 'sawtooth', 0.1, 100);
     });
 
     resetDrawingBtn?.addEventListener('click', () => {
